@@ -1,219 +1,193 @@
-# RAG Ticket Intelligence System
+# RAG Support Copilot
 
-Production-ready Retrieval-Augmented Generation pipeline for support ticket resolution.  
-Given a raw support ticket, the system retrieves similar historical tickets from a local vector store and generates a validated, structured resolution using DeepSeek-V4-Pro.
+An AI-powered support ticket resolution system using Retrieval-Augmented Generation (RAG). Upload your support documentation, ask about any issue, and receive structured resolution cards with possible causes, recommended steps, urgency levels, and source citations — all streamed live.
 
 ---
 
 ## Architecture
 
 ```
-User Ticket Text
-       │
-       ▼
-┌─────────────────┐
-│ Query Pre-       │  typo correction, normalization
-│ processor        │
-└────────┬────────┘
-         │ cleaned query
-         ▼
-┌─────────────────┐
-│ SentenceTransfor │  all-MiniLM-L6-v2 (local, no API)
-│ mer Embedder     │
-└────────┬────────┘
-         │ query vector
-         ▼
-┌─────────────────┐
-│   ChromaDB       │  persistent vector store
-│   Retrieval      │  top-3 nearest chunks
-└────────┬────────┘
-         │ context + confidence score
-         ▼
-┌─────────────────┐
-│ Confidence Gate  │  distance > 0.8 → fallback (no LLM call)
-└────────┬────────┘
-         │ high-confidence context
-         ▼
-┌─────────────────┐
-│ DeepSeek-V4-Pro  │  via Hugging Face Router (OpenAI-compatible)
-│ (streaming)      │  3 retries, exponential backoff
-└────────┬────────┘
-         │ raw JSON string
-         ▼
-┌─────────────────┐
-│ JSON Repair +    │  repair truncated output, sanitize nulls
-│ Sanitizer        │
-└────────┬────────┘
-         │ clean dict
-         ▼
-┌─────────────────┐
-│ Pydantic         │  Resolution schema, list→string coercion
-│ Validation       │
-└────────┬────────┘
-         │
-         ▼
-    Resolution JSON
+┌─────────────────────────────────────────────────────────────────┐
+│                         Browser                                  │
+│  ┌──────────────┐   ┌────────────────────────────────────────┐  │
+│  │   Sidebar    │   │           Chat Interface                │  │
+│  │  - API Key   │   │  Messages (SSE stream → Resolution Card)│  │
+│  │  - Strict    │   │  Sources (collapsible, with scores)     │  │
+│  │  - Upload    │   │  Input bar (react-hook-form + zod)      │  │
+│  │  - Status    │   └────────────────────────────────────────┘  │
+│  └──────┬───────┘                │                              │
+└─────────│────────────────────────│──────────────────────────────┘
+          │ POST /ingest           │ POST /query (SSE)
+          │ GET /status            │
+┌─────────▼────────────────────────▼──────────────────────────────┐
+│                     FastAPI Backend                              │
+│  ┌────────────────┐   ┌──────────────────────────────────────┐  │
+│  │  /ingest       │   │  /query                              │  │
+│  │  - Chunk text  │   │  - Typo-normalize query              │  │
+│  │  - SentTrans.  │   │  - Embed + Chroma similarity search  │  │
+│  │    embed       │   │  - Strict mode confidence check      │  │
+│  │  - Chroma add  │   │  - HF Router → DeepSeek-V3 stream    │  │
+│  └────────────────┘   │  - Retry w/ exponential backoff      │  │
+│  ┌────────────────┐   │  - JSON repair + Pydantic validate   │  │
+│  │  /status       │   │  - SSE: chunks → final Resolution    │  │
+│  └────────────────┘   └──────────────────────────────────────┘  │
+│                                    │                             │
+│         ┌──────────────────────────┼────────────────┐           │
+│         ▼                          ▼                ▼           │
+│  ┌─────────────┐   ┌────────────────────┐  ┌──────────────┐    │
+│  │  ChromaDB   │   │ SentenceTransformer│  │ HF Router    │    │
+│  │  (persist)  │   │ all-MiniLM-L6-v2   │  │ DeepSeek-V3  │    │
+│  └─────────────┘   └────────────────────┘  └──────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Edge-Case Handling
+## Key Features
 
-| # | Edge Case | How It's Handled |
-|---|-----------|-----------------|
-| 1 | **Null fields** | `sanitize_data()` replaces any `None` field with a sensible default before Pydantic sees it |
-| 2 | **List vs string** | `@field_validator("recommended_steps", mode="before")` joins lists with `\n` automatically |
-| 3 | **Empty retrieval** | `collection.count() == 0` check skips LLM and returns `FALLBACK_RESOLUTION` |
-| 4 | **Low-confidence retrieval** | Cosine distance > `DISTANCE_THRESHOLD` (0.8) → skip LLM, return fallback |
-| 5 | **Truncated JSON** | `repair_json()` tries several closing suffixes; falls back gracefully if unrepairable |
-| 6 | **Typos / messy queries** | `preprocess_query()` applies a regex correction map before embedding |
-| 7 | **Unrelated queries** | Same distance gate as #4 — out-of-domain queries score > 0.8 distance |
-| 8 | **Missing ingest warning** | `ingest_documents()` prints an actionable warning; `retrieve_context()` logs clearly |
-| 9 | **Retry & rate-limit** | 3 attempts with exponential backoff (`2^attempt` seconds); doubles on 429 errors |
-| 10 | **Truncation from short `max_tokens`** | `MAX_TOKENS = 1024` (raised from 512) |
+- **Streaming responses** — SSE from FastAPI, consumed via `fetch` + `ReadableStream`; text streams live before the Resolution Card appears.
+- **Resolution Cards** — Structured JSON output validated via Pydantic: urgency badge, sentiment emoji, recommended steps, disclaimer.
+- **Source citations** — Top-K retrieved chunks shown with similarity scores; collapsible per message.
+- **File ingestion** — Upload `.txt` / `.md` files; chunked (300 chars, 50 overlap), embedded locally, stored in ChromaDB.
+- **Strict mode** — Skips LLM if top retrieval confidence < 60%, returns fallback resolution.
+
+### Edge Cases Handled
+
+| # | Edge Case | Handling |
+|---|-----------|----------|
+| 1 | Null fields from LLM | `replace_nulls()` replaces all `None` → `"Unknown"` before Pydantic |
+| 2 | Truncated JSON | `repair_json()` closes unclosed strings, braces, brackets |
+| 3 | Typos in query | `TYPO_MAP` with 24 regex patterns; corrected query shown to user |
+| 4 | Empty document DB | LLM still called; `disclaimer` field set in response |
+| 5 | Rate limits (429) | Exponential backoff, up to 3 retries |
+| 6 | Low confidence strict mode | Returns `FALLBACK_RESOLUTION` without LLM call |
+| 7 | Invalid urgency enum | `URGENCY_MAP` normalizes "urgent"→"high", "emergency"→"critical", etc. |
+| 8 | Invalid sentiment enum | `SENTIMENT_MAP` normalizes "frustrated"→"negative", "happy"→"positive", etc. |
+| 9 | `recommended_steps` as string | Pydantic `coerce_steps` validator wraps in list |
+| 10 | No API key | Backend returns 401; frontend disables send button with warning |
+| 11 | Backend unreachable | Frontend catches fetch error, shows inline error message |
 
 ---
 
-## Setup
+## Quick Start
 
-### 1. Install dependencies
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+
+### 1. Clone & configure
 
 ```bash
-pip install openai pydantic python-dotenv chromadb sentence-transformers
+git clone <repo>
+cd LLM-Pipeline
 ```
 
-### 2. Create `.env`
-
+Create `backend/.env`:
 ```env
-HF_API_KEY=hf_your_token_here
+HF_API_KEY=hf_your_key_here
 ```
 
-Get a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).  
-The token needs **Inference** permission (free tier works).
+Create `frontend/.env.local`:
+```bash
+cp frontend/.env.local.template frontend/.env.local
+# Edit NEXT_PUBLIC_BACKEND_URL if your backend runs on a different port
+```
 
-### 3. Add support documents
+### 2. Start the backend
 
 ```bash
-mkdir support_docs
-# Drop .txt or .md files describing past tickets and resolutions
+cd backend
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+
+pip install -r requirements.txt
+python server.py
+# → http://localhost:8000
 ```
 
-Example file `support_docs/hardware.txt`:
-```
-Issue: Laptop screen black on boot, fans running.
-Resolution: Perform a hard reset — hold power 10 s. Reseat RAM if persists.
-Urgency: high
-```
-
----
-
-## Usage
-
-### Ingest documents
+### 3. Start the frontend
 
 ```bash
-python rag_ticket_system.py ingest
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3000
 ```
 
-Chunks and embeds all `.txt`/`.md` files from `./support_docs/` into ChromaDB.  
-Re-run whenever you add or update documents.
+### 4. Use it
 
-### Query a ticket
-
-```bash
-python rag_ticket_system.py query "My laptop screen stays black after I press power."
-```
-
-Output:
-```json
-{
-  "possible_cause": "Display or boot failure caused by RAM or firmware issue",
-  "recommended_steps": "1. Hold power button 10 seconds (hard reset)\n2. Reseat RAM\n3. Boot in safe mode",
-  "urgency": "high",
-  "sentiment": "neutral"
-}
-```
-
-Typos are corrected automatically:
-```bash
-python rag_ticket_system.py query "myaltpop wont turn on"
-# pre-processed → "my laptop wont turn on"
-```
-
-Out-of-domain queries return the fallback without calling the LLM:
-```bash
-python rag_ticket_system.py query "How do I bake a cake?"
-# → "No past tickets found. Escalate to a human agent."
-```
-
-### Run the evaluation suite
-
-```bash
-python rag_ticket_system.py eval
-```
-
-Runs 4 labeled test cases (3 in-domain + 1 out-of-domain) and prints pass/fail.
+1. Open `http://localhost:3000`
+2. Enter your Hugging Face API key in the sidebar
+3. Upload `.txt` or `.md` support documents via the sidebar drop zone
+4. Ask about any support issue in the chat
 
 ---
 
 ## Project Structure
 
 ```
-.
-├── rag_ticket_system.py   # single self-contained script
-├── support_docs/          # drop .txt/.md knowledge base files here
-├── chroma_db/             # auto-created persistent vector store
-├── .env                   # HF_API_KEY=...
+LLM-Pipeline/
+├── backend/
+│   ├── server.py          # FastAPI: ingest, query SSE, status
+│   ├── requirements.txt
+│   └── chroma_db/         # auto-created at runtime
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx       # entry point → ChatInterface
+│   │   ├── layout.tsx
+│   │   └── globals.css    # dark theme CSS variables
+│   ├── components/
+│   │   ├── ChatInterface.tsx   # main client component, SSE state
+│   │   ├── Sidebar.tsx         # API key, strict mode, upload, status
+│   │   ├── MessageBubble.tsx   # user/assistant bubbles
+│   │   ├── ResolutionCard.tsx  # urgency badge, steps, sentiment
+│   │   └── SourcesSection.tsx  # collapsible retrieved chunks
+│   ├── lib/
+│   │   ├── types.ts       # shared TypeScript types
+│   │   ├── sse.ts         # fetch + ReadableStream SSE consumer
+│   │   └── api.ts         # ingest, status API wrappers
+│   └── .env.local.template
 └── README.md
 ```
 
 ---
 
-## How to Extend
+## Deployment
 
-### Add more documents
-Drop `.txt` or `.md` files into `./support_docs/` and re-run `ingest`.
+### Backend → Hugging Face Spaces (Docker)
 
-### Change the LLM model
-Edit `LLM_MODEL` in the Configuration section:
-```python
-LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.3:hf-inference"
-```
-Any OpenAI-compatible model on the HF Router works.
-
-### Tune the confidence threshold
-Lower `DISTANCE_THRESHOLD` (e.g. `0.6`) to be stricter; raise it to allow looser matches:
-```python
-DISTANCE_THRESHOLD = 0.6   # only use very close matches
+Create `backend/Dockerfile`:
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY server.py .
+EXPOSE 7860
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]
 ```
 
-### Add more typo corrections
-Append regex patterns to `TYPO_MAP` in the Query Pre-processor section:
-```python
-TYPO_MAP[r"\byour_typo\b"] = "corrected_word"
+Set `HF_API_KEY` in Space secrets. Update `NEXT_PUBLIC_BACKEND_URL` in Vercel env vars.
+
+### Backend → Railway
+
+1. Push `backend/` to a GitHub repo
+2. Create Railway project → connect repo
+3. Set `HF_API_KEY` environment variable
+4. Railway auto-detects Python and runs `python server.py`
+
+### Frontend → Vercel
+
+```bash
+cd frontend
+npx vercel --prod
+# Set NEXT_PUBLIC_BACKEND_URL to your deployed backend URL in Vercel dashboard
 ```
-
-### Change chunk size
-Smaller chunks = more precise retrieval; larger chunks = more context per result:
-```python
-CHUNK_SIZE   = 500
-CHUNK_OVERLAP = 100
-```
-
----
-
-## Configuration Reference
-
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_MODEL` | `deepseek-ai/DeepSeek-V4-Pro:novita` | HF Router model ID |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Local sentence-transformers model |
-| `TEMPERATURE` | `0.1` | Lower = more deterministic output |
-| `MAX_TOKENS` | `1024` | Max tokens in LLM response |
-| `CHUNK_SIZE` | `300` | Characters per document chunk |
-| `CHUNK_OVERLAP` | `50` | Overlap between consecutive chunks |
-| `DISTANCE_THRESHOLD` | `0.8` | Max cosine distance before fallback |
-| `CONFIDENCE_THRESHOLD` | `0.2` | Min confidence score before fallback |
 
 ---
 
