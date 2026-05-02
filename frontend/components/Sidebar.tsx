@@ -27,16 +27,17 @@ export default function Sidebar({ onSettingsChange }: Props) {
   const {
     register,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: {
-      apiKey:
-        typeof window !== "undefined"
-          ? (localStorage.getItem("hf_api_key") ?? "")
-          : "",
-    },
+    defaultValues: { apiKey: "" },
   });
+
+  useEffect(() => {
+    const saved = localStorage.getItem("hf_api_key") ?? "";
+    if (saved) setValue("apiKey", saved);
+  }, [setValue]);
 
   const apiKey = watch("apiKey");
 

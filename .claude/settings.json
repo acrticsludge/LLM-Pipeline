@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(head)",
+      "Bash(npm install *)"
+    ]
+  }
+}
