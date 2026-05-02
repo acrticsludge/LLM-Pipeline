@@ -1,0 +1,2 @@
+Problem: Laptop black screen but fans spinning.
+Solution: Perform a hard reset by holding the power button for 15 seconds. Then restart.
