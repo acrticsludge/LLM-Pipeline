@@ -45,6 +45,14 @@ export interface SSEErrorEvent {
 
 export type SSEEvent = SSEChunkEvent | SSEFinalEvent | SSEErrorEvent;
 
+export interface RetrievalLogEntry {
+  time: string;
+  action: string;
+  score?: number | null;
+  chunks?: number | null;
+  latency?: number | null;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -55,6 +63,9 @@ export interface Message {
   isNonTicket?: boolean;
   isStreaming?: boolean;
   error?: string;
+  followUps?: string[];
+  retrievalLog?: RetrievalLogEntry[];
+  feedback?: "up" | "down" | null;
 }
 
 export interface IngestResponse {

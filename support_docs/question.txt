@@ -1,2 +1,92 @@
 Problem: Laptop black screen but fans spinning.
 Solution: Perform a hard reset by holding the power button for 15 seconds. Then restart.
+
+Problem: Laptop screen is black but fans are spinning.
+Solution: Perform a hard reset by holding the power button for 15 seconds, then restart. If the issue persists, connect an external monitor to check if the display panel is faulty.
+
+Problem: Computer makes a loud grinding sound and then shuts down.
+Solution: Immediately turn off the laptop, check for dust buildup, and clean the cooling fan with compressed air. If the noise continues, the fan bearings may be worn and the fan should be replaced.
+
+Problem: WiFi keeps disconnecting every few minutes.
+Solution: Update the wireless adapter driver, reset the network stack with `netsh int ip reset` and `netsh winsock reset`, and set the wireless power plan to Maximum Performance.
+
+Problem: Blue screen error 'MEMORY_MANAGEMENT'.
+Solution: Run Windows Memory Diagnostic, test each RAM stick individually, and check for driver updates (especially graphics). If the error persists, one of the RAM modules may be faulty.
+
+Problem: Battery drains from 100% to 0% in under 1 hour on idle.
+Solution: Generate a battery health report with `powercfg /batteryreport`. If wear level is over 50%, replace the battery. Also reduce screen brightness and disable unnecessary background apps.
+
+Problem: Keyboard keys are sticky and some do not register.
+Solution: Clean under the keycaps with compressed air. If there has been a liquid spill, turn off the laptop, disconnect the battery, and let it dry for 48 hours. If cleaning doesn't help, the keyboard may need to be replaced.
+
+Problem: External monitor not detected via HDMI.
+Solution: Press `Win+P` and select ‘Extend’. Check cable connections and try a different HDMI cable. Update the graphics driver. If the monitor still isn't detected, test it on another device.
+
+Problem: Laptop turns off randomly after 10–15 minutes of use.
+Solution: Check for overheating — clean the vents and fan. Update BIOS and chipset drivers. If the issue continues, the motherboard or power delivery circuit may be faulty.
+
+Problem: USB ports stopped working after a Windows update.
+Solution: Open Device Manager, uninstall all Universal Serial Bus controllers, and restart the laptop. Windows will reinstall the drivers automatically.
+
+Problem: Slow performance with high CPU usage from 'System' process.
+Solution: Run Windows Update, install the latest chipset drivers, disable startup programs, and scan for malware with Windows Defender.
+
+Problem: No sound from laptop speakers but headphones work.
+Solution: Check the playback devices (right‑click sound icon → Playback devices), set the speakers as default. Run the Windows audio troubleshooter. If still no sound, reinstall the audio driver.
+
+Problem: Can't connect to Wi‑Fi — 'No networks found'.
+Solution: Ensure the physical Wi‑Fi switch is on, enable Wi‑Fi in Airplane mode settings. Reinstall the wireless adapter driver. Reset the network stack with `netsh int ip reset` and restart.
+
+Problem: Microsoft Office apps crash immediately after launch.
+Solution: Repair the Office installation via Control Panel → Programs. Run `sfc /scannow` to check system files. If the problem persists, reinstall Office.
+
+Problem: Windows update stuck at 45% for several hours.
+Solution: Stop the Windows Update service, delete the `SoftwareDistribution` folder, restart the service, and retry updates. Also run the Windows Update Troubleshooter.
+
+Problem: Laptop won't turn on at all — no lights, no fan.
+Solution: Check the AC adapter connection and try a different power outlet. Remove the battery (if removable), hold the power button for 30 seconds, reconnect the adapter only, and try to turn it on.
+
+Problem: Screen flickers when running on battery but works fine on AC.
+Solution: Open advanced power settings, set the display power option to 'Maximum Performance'. Update the graphics driver. If flickering persists, the battery may be unable to provide stable voltage — consider replacing it.
+
+Problem: Printer shows as 'Offline' even though it's connected via USB.
+Solution: Restart the Print Spooler service. Remove and re‑add the printer in Settings. Use the printer manufacturer's troubleshooter.
+
+Problem: Forgot BitLocker recovery key and cannot access the encrypted drive.
+Solution: Search your Microsoft account online for saved recovery keys (https://account.microsoft.com/devices/recoverykey). If the key isn't there, the data may be unrecoverable.
+
+Problem: User account locked after multiple wrong password attempts.
+Solution: Wait 30 minutes for the lockout period to expire, or use another administrator account to reset the password. Consider setting up a password reset disk for future use.
+
+Problem: Suspicious login activity reported — possible account breach.
+Solution: Immediately change the password, enable two‑factor authentication, review recent sign‑in activity, and run a full antivirus scan.
+
+Problem: System restore fails with error 0x80070005.
+Solution: Temporarily disable antivirus real‑time protection. Boot into Safe Mode and run System Restore. Ensure the hard drive has at least 1 GB of free space.
+
+Problem: Mouse cursor freezes randomly for a few seconds.
+Solution: Check the mouse battery (if wireless), change the USB port, and disable 'USB selective suspend' in Power Options.
+
+Problem: Laptop touchpad stopped working after a driver update.
+Solution: Roll back the touchpad driver in Device Manager. If that doesn't work, uninstall the driver and restart — Windows will reinstall it.
+
+Problem: 'Administrator has blocked this app' when trying to install software.
+Solution: Right‑click the installer and select 'Run as administrator'. If still blocked, temporarily disable SmartScreen in Windows Security, then re‑enable it after installation.
+
+Problem: Multiple blue screens pointing to different driver files.
+Solution: Update all drivers using Windows Update or manufacturer's website. Run `sfc /scannow` and `DISM /Online /Cleanup-Image /RestoreHealth`. Test the RAM with MemTest86.
+
+Problem: Laptop gets extremely hot even when doing light tasks.
+Solution: Clean the air vents and fan with compressed air. Apply new thermal paste between the CPU/GPU and heatsink. Use a cooling pad.
+
+Problem: Email attachments won't open in Outlook.
+Solution: Check file association settings, clear Outlook's temporary folder, and repair the Office installation. Ensure the file type is supported.
+
+Problem: Webcam not working – shows black screen in video calls.
+Solution: Check the webcam privacy shutter (physical cover). Update the camera driver. In Settings → Privacy, allow apps to access the camera.
+
+Problem: Internet extremely slow on this laptop but fine on other devices.
+Solution: Forget the Wi‑Fi network and reconnect. Run a network speed test. Disable background downloads and check for malware. Reset the network adaptor.
+
+Problem: Error 'This application failed to start because msvcp140.dll is missing'.
+Solution: Install the latest Microsoft Visual C++ Redistributables from the official Microsoft website. Restart the laptop afterwards.

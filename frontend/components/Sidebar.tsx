@@ -12,17 +12,40 @@ const settingsSchema = z.object({
 });
 type SettingsForm = z.infer<typeof settingsSchema>;
 
-interface Props {
-  onSettingsChange: (apiKey: string, strict: boolean) => void;
+export interface TweaksSettings {
+  accentHue: number;
+  fontSize: number;
+  showSources: boolean;
+  showRetrieval: boolean;
 }
 
-export default function Sidebar({ onSettingsChange }: Props) {
+interface Props {
+  onSettingsChange: (apiKey: string, strict: boolean) => void;
+  tweaks?: TweaksSettings;
+  onTweaksChange?: (tweaks: TweaksSettings) => void;
+}
+
+export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Props) {
   const [strict, setStrict] = useState(false);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [ingestState, setIngestState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [ingestMessage, setIngestMessage] = useState("");
+  const [localTweaks, setLocalTweaks] = useState<TweaksSettings>(
+    tweaks || {
+      accentHue: 55,
+      fontSize: 13,
+      showSources: true,
+      showRetrieval: true,
+    }
+  );
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const updateTweak = (key: keyof TweaksSettings, value: any) => {
+    const updated = { ...localTweaks, [key]: value };
+    setLocalTweaks(updated);
+    onTweaksChange?.(updated);
+  };
 
   const {
     register,
@@ -209,6 +232,83 @@ export default function Sidebar({ onSettingsChange }: Props) {
         ) : (
           <p className="text-xs text-[var(--muted)]">Loading…</p>
         )}
+      </div>
+
+      <hr className="border-[var(--border)]" />
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-3">
+          UI Tweaks
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="flex justify-between text-xs mb-2">
+              <span className="text-[var(--muted)]">Accent Hue</span>
+              <span className="text-[var(--accent)] font-mono">{localTweaks.accentHue}°</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="360"
+              step="5"
+              value={localTweaks.accentHue}
+              onChange={(e) => updateTweak("accentHue", parseInt(e.target.value))}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, hsl(0,0%,30%), hsl(${localTweaks.accentHue},70%,50%))`,
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="flex justify-between text-xs mb-2">
+              <span className="text-[var(--muted)]">Font Size</span>
+              <span className="text-[var(--accent)] font-mono">{localTweaks.fontSize}px</span>
+            </label>
+            <input
+              type="range"
+              min="12"
+              max="18"
+              step="1"
+              value={localTweaks.fontSize}
+              onChange={(e) => updateTweak("fontSize", parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <label className="text-xs text-[var(--muted)]">Show Sources</label>
+            <button
+              onClick={() => updateTweak("showSources", !localTweaks.showSources)}
+              className={`relative w-8 h-4 rounded-full transition-colors ${
+                localTweaks.showSources ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                  localTweaks.showSources ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-[var(--muted)]">Show RAG Log</label>
+            <button
+              onClick={() => updateTweak("showRetrieval", !localTweaks.showRetrieval)}
+              className={`relative w-8 h-4 rounded-full transition-colors ${
+                localTweaks.showRetrieval ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                  localTweaks.showRetrieval ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
   );

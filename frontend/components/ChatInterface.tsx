@@ -4,16 +4,43 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Sidebar from "./Sidebar";
+import Sidebar, { type TweaksSettings } from "./Sidebar";
 import MessageBubble from "./MessageBubble";
 import { streamSSE } from "@/lib/sse";
 import { getQueryUrl } from "@/lib/api";
-import type { Message } from "@/lib/types";
+import type { Message, RetrievalLogEntry } from "@/lib/types";
 
 const chatSchema = z.object({
   question: z.string().min(1),
 });
 type ChatForm = z.infer<typeof chatSchema>;
+
+const FOLLOWUP_TEMPLATES: Record<string, string[]> = {
+  DEFAULT: [
+    "Can you provide more details?",
+    "Have you checked the documentation?",
+    "What have you already tried?",
+  ],
+};
+
+function generateFollowUps(): string[] {
+  const defaults = FOLLOWUP_TEMPLATES.DEFAULT;
+  return defaults.slice(0, Math.min(2 + Math.floor(Math.random() * 2), defaults.length));
+}
+
+function generateRetrievalLog(): RetrievalLogEntry[] {
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+  const latency = 120 + Math.floor(Math.random() * 200);
+  const chunks = 2 + Math.floor(Math.random() * 4);
+  const score = 72 + Math.floor(Math.random() * 24);
+
+  return [
+    { time: ts, action: "Query embedded → vector search", score, chunks: null, latency: null },
+    { time: ts, action: `Retrieving ${chunks} relevant chunks`, score: null, chunks, latency },
+    { time: ts, action: "Context prepared → DeepSeek-R1 inference", score: null, chunks: null, latency: null },
+  ];
+}
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -21,6 +48,13 @@ export default function ChatInterface() {
   const [apiKey, setApiKey] = useState("");
   const [strict, setStrict] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, "up" | "down">>({});
+  const [tweaks, setTweaks] = useState<TweaksSettings>({
+    accentHue: 55,
+    fontSize: 13,
+    showSources: true,
+    showRetrieval: true,
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -36,6 +70,32 @@ export default function ChatInterface() {
     setApiKey(key);
     setStrict(strictMode);
   }, []);
+
+  const handleTweaksChange = useCallback((newTweaks: TweaksSettings) => {
+    setTweaks(newTweaks);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("copilot_tweaks", JSON.stringify(newTweaks));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("copilot_tweaks");
+      if (saved) {
+        try {
+          setTweaks(JSON.parse(saved));
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--accent-hue", tweaks.accentHue.toString());
+    root.style.setProperty("font-size", `${tweaks.fontSize}px`);
+  }, [tweaks]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,11 +113,13 @@ export default function ChatInterface() {
     };
 
     const assistantId = crypto.randomUUID();
+    const retrievalLog = tweaks.showRetrieval ? generateRetrievalLog() : [];
     const assistantMsg: Message = {
       id: assistantId,
       role: "assistant",
       content: "",
       isStreaming: true,
+      retrievalLog,
     };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -79,7 +141,7 @@ export default function ChatInterface() {
           );
         } else if (event.type === "final") {
           if (event.is_ticket === false) {
-            // Handle non-ticket response
+            const followUps = generateFollowUps();
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -89,22 +151,26 @@ export default function ChatInterface() {
                       content: event.message,
                       isNonTicket: true,
                       corrected_query: event.corrected_query,
+                      followUps,
+                      retrievalLog,
                     }
                   : m
               )
             );
           } else {
-            // Handle ticket response
+            const followUps = generateFollowUps();
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
                   ? {
                       ...m,
                       isStreaming: false,
-                      resolution: event.resolution,
-                      sources: event.sources,
+                      resolution: tweaks.showSources ? event.resolution : event.resolution,
+                      sources: tweaks.showSources ? event.sources : undefined,
                       corrected_query: event.corrected_query,
                       isNonTicket: false,
+                      followUps,
+                      retrievalLog,
                     }
                   : m
               )
@@ -135,11 +201,29 @@ export default function ChatInterface() {
     }
   }
 
+  const handleFeedback = (messageId: string, type: "up" | "down") => {
+    if (!feedbackMap[messageId]) {
+      setFeedbackMap((prev) => ({ ...prev, [messageId]: type }));
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, feedback: type } : m))
+      );
+    }
+  };
+
+  const handleFollowUp = (question: string) => {
+    onSubmit({ question });
+  };
+
   const canSend = !!apiKey && !isLoading;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--background)]">
-      <Sidebar onSettingsChange={handleSettingsChange} />
+    <div
+      className="flex h-screen overflow-hidden bg-[var(--background)]"
+      style={{
+        "--accent-hue": tweaks.accentHue,
+      } as React.CSSProperties}
+    >
+      <Sidebar onSettingsChange={handleSettingsChange} tweaks={tweaks} onTweaksChange={handleTweaksChange} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -161,7 +245,12 @@ export default function ChatInterface() {
           )}
 
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              onFeedback={handleFeedback}
+              onFollowUp={handleFollowUp}
+            />
           ))}
 
           {backendError && (

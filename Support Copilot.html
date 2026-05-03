@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Support Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-0: #0f0f0f;
+    --bg-1: #161616;
+    --bg-2: #1e1e1e;
+    --bg-3: #262626;
+    --bg-4: #2e2e2e;
+    --line: #2a2a2a;
+    --line-bright: #3a3a3a;
+    --text-0: #e8e4df;
+    --text-1: #b0ab9f;
+    --text-2: #6e6861;
+    --text-3: #454037;
+    --accent: oklch(65% 0.12 55);
+    --accent-dim: oklch(65% 0.12 55 / 0.15);
+    --accent-mid: oklch(65% 0.12 55 / 0.35);
+    --green: oklch(62% 0.12 155);
+    --green-dim: oklch(62% 0.12 155 / 0.15);
+    --red: oklch(60% 0.14 25);
+    --red-dim: oklch(60% 0.14 25 / 0.15);
+    --yellow: oklch(72% 0.13 85);
+    --yellow-dim: oklch(72% 0.13 85 / 0.15);
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  html, body { height: 100%; width: 100%; overflow: hidden; background: var(--bg-0); }
+
+  #root { height: 100vh; width: 100vw; display: flex; flex-direction: column; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentHue": 55,
+  "fontScale": 13,
+  "showConfidence": true,
+  "showSources": true,
+  "splitLayout": true,
+  "compactMessages": false
+}/*EDITMODE-END*/;
+
+// ──── Follow-up Template Database ────────────────────────────────────────
+const FOLLOWUP_TEMPLATES = {
+  'DISPLAY / GPU': [
+    'How do I update GPU drivers?',
+    'What if external monitor also fails?',
+    'Could this be a BIOS issue?',
+    'How do I check GPU temperature?',
+    'What is the difference between integrated and discrete GPU?',
+  ],
+  'NETWORK / CONNECTIVITY': [
+    'How do I check for IP conflicts?',
+    'What if the DHCP server is down?',
+    'Can I test connectivity from command line?',
+    'What is the difference between IPv4 and IPv6?',
+    'How do I check my router logs?',
+  ],
+  'OS / SOFTWARE': [
+    'Where are cache files stored?',
+    'How to check startup processes?',
+    'What is a clean boot?',
+    'Should I reinstall the application?',
+    'How do I check system logs?',
+  ],
+  'SECURITY / ACCOUNT': [
+    'How do I change my password securely?',
+    'What is two-factor authentication?',
+    'How do I check account activity?',
+    'Should I enable login notifications?',
+  ],
+};
+
+const GENERIC_FOLLOWUPS = [
+  'What have you already tried?',
+  'Is this issue persistent or intermittent?',
+  'When did this issue start?',
+  'Does this happen on other devices?',
+];
+
+// ──── Icons ──────────────────────────────────────────────────────────────
+const IconSend = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M1 1L13 7L1 13V8.5L9 7L1 5.5V1Z" fill="currentColor"/>
+  </svg>
+);
+const IconCopy = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+    <path d="M8 4V2.5A.5.5 0 0 0 7.5 2H2.5A.5.5 0 0 0 2 2.5V7.5A.5.5 0 0 0 2.5 8H4" stroke="currentColor" strokeWidth="1.2"/>
+  </svg>
+);
+const IconThumbUp = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <path d="M4 10H8.5C9 10 9.5 9.6 9.6 9.1L10.5 5.6C10.7 4.9 10.2 4.2 9.5 4.2H7V2.5C7 2 6.7 1.8 6.5 1.8L4 5V10Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
+    <path d="M2.5 10H4V5H2.5C2.2 5 2 5.2 2 5.5V9.5C2 9.8 2.2 10 2.5 10Z" stroke="currentColor" strokeWidth="1.1"/>
+  </svg>
+);
+const IconThumbDown = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+    <path d="M8 2H3.5C3 2 2.5 2.4 2.4 2.9L1.5 6.4C1.3 7.1 1.8 7.8 2.5 7.8H5V9.5C5 10 5.3 10.2 5.5 10.2L8 7V2Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
+    <path d="M9.5 2H8V7H9.5C9.8 7 10 6.8 10 6.5V2.5C10 2.2 9.8 2 9.5 2Z" stroke="currentColor" strokeWidth="1.1"/>
+  </svg>
+);
+const IconChevron = ({ open }) => (
+  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+    <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+const IconChroma = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/>
+    <circle cx="7" cy="7" r="2" fill="currentColor"/>
+    <line x1="7" y1="1.5" x2="7" y2="3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    <line x1="7" y1="11" x2="7" y2="12.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    <line x1="1.5" y1="7" x2="3" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    <line x1="11" y1="7" x2="12.5" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+  </svg>
+);
+const IconDeepseek = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M2 3H7L12 7L7 11H2L7 7L2 3Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+  </svg>
+);
+const IconDot = () => (
+  <svg width="6" height="6" viewBox="0 0 6 6">
+    <circle cx="3" cy="3" r="2.5" fill="currentColor"/>
+  </svg>
+);
+
+// ──── Utility Functions ──────────────────────────────────────────────────
+function formatDiagnostic(diagnostic) {
+  if (!diagnostic) return '';
+  let text = `Cause: ${diagnostic.cause}\n\nSteps:\n`;
+  diagnostic.steps.forEach((step, i) => {
+    text += `${i + 1}. ${step}\n`;
+  });
+  if (diagnostic.sources && diagnostic.sources.length > 0) {
+    text += `\nSources: ${diagnostic.sources.join(', ')}\n`;
+  }
+  return text;
+}
+
+function generateFollowUps(category, userMessage, conversationHistory) {
+  const templateList = FOLLOWUP_TEMPLATES[category] || [];
+  const generics = [...GENERIC_FOLLOWUPS];
+
+  // Pick 2-3 from category, 1-2 from generics
+  const categoryPicks = templateList.slice(0, Math.min(2 + Math.floor(Math.random() * 2), templateList.length));
+  const genericPicks = generics.slice(0, Math.min(1 + Math.floor(Math.random() * 2), generics.length));
+
+  return [...categoryPicks, ...genericPicks].slice(0, 4);
+}
+
+function mockRetrieval(userMessage) {
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const latency = 120 + Math.floor(Math.random() * 200);
+  const chunks = 2 + Math.floor(Math.random() * 4);
+  const score = 72 + Math.floor(Math.random() * 24);
+
+  return [
+    { time: ts, action: 'Query embedded → vector search', score, chunks: null, latency: null },
+    { time: ts, action: `Retrieving ${chunks} relevant chunks`, score: null, chunks, latency },
+    { time: ts, action: 'Context prepared → DeepSeek-R1 inference', score: null, chunks: null, latency: null },
+  ];
+}
+
+// ──── Mock Backend ───────────────────────────────────────────────────────
+function mockBackend(userMessage, conversationHistory) {
+  return new Promise((resolve) => {
+    const delay = 1200 + Math.random() * 800;
+
+    setTimeout(() => {
+      const lowerMsg = userMessage.toLowerCase();
+      let category = null;
+      let severity = 'MEDIUM';
+      let confidence = 75 + Math.floor(Math.random() * 20);
+      let cause = '';
+      let steps = [];
+      let sources = [];
+      let text = '';
+
+      // Keyword detection
+      if (lowerMsg.match(/screen|display|monitor|dark|black|brightness|resolution|gpu|graphics|hdmi|vga/i)) {
+        category = 'DISPLAY / GPU';
+        const causes = [
+          'The graphics adapter may be disconnected, disabled, or drivers are outdated. Check Device Manager.',
+          'Hardware failure in display output or GPU memory module. This requires hardware diagnostics.',
+          'The display backlight may have failed or the signal cable is loose. Reseat all connections.',
+        ];
+        cause = causes[Math.floor(Math.random() * causes.length)];
+        steps = [
+          'Perform a hard reset by holding the power button for 15 seconds.',
+          'Restart the system and enter BIOS (usually F2, F10, or DEL).',
+          'Check if the GPU is properly seated and cooling fans spin.',
+          'Update graphics drivers from manufacturer\'s website.',
+          'Test with an external display if available.',
+        ];
+        sources = ['KB-2941', 'HW-DISP-07', 'GPU-FAULT-TABLE'];
+      } else if (lowerMsg.match(/wifi|network|internet|connection|dns|ethernet|ping|gateway|router/i)) {
+        category = 'NETWORK / CONNECTIVITY';
+        const causes = [
+          'IP address conflict or DHCP lease failure. The network adapter may have a stale ARP cache.',
+          'Gateway or DNS server is unreachable. Routing configuration may be corrupted.',
+          'Network adapter driver is outdated or the adapter is disabled in BIOS.',
+        ];
+        cause = causes[Math.floor(Math.random() * causes.length)];
+        steps = [
+          'Open Command Prompt as Administrator.',
+          'Run: ipconfig /release && ipconfig /flushdns && ipconfig /renew',
+          'Restart your router and wait 2 minutes before reconnecting.',
+          'Run: ipconfig /all to verify DHCP is assigning addresses.',
+          'Check network adapter status in Device Manager.',
+        ];
+        sources = ['NET-DIAG-12', 'KB-1104', 'DHCP-GUIDE-v3'];
+      } else if (lowerMsg.match(/password|account|login|locked|security|2fa|mfa|authentication/i)) {
+        category = 'SECURITY / ACCOUNT';
+        const causes = [
+          'Account may be locked due to too many failed login attempts.',
+          'Password has expired or credentials are cached incorrectly.',
+          'Two-factor authentication is enabled but the device is not registered.',
+        ];
+        cause = causes[Math.floor(Math.random() * causes.length)];
+        steps = [
+          'Clear browser cache and cookies for this domain.',
+          'Try logging in from an incognito/private window.',
+          'If account is locked, wait 30 minutes before retrying.',
+          'Verify that two-factor authentication is set up correctly.',
+          'Check if account email is verified and current.',
+        ];
+        sources = ['SEC-AUTH-05', 'KB-2304', 'ACC-LOCK-POLICY'];
+      } else if (lowerMsg.match(/update|driver|error|crash|bug|freeze|slow|lag|performance|memory|cpu|ram/i)) {
+        category = 'OS / SOFTWARE';
+        const causes = [
+          'A corrupted application cache or conflicting background process is preventing normal operation.',
+          'System resources are exhausted (memory or CPU). Check Task Manager for runaway processes.',
+          'Software needs an update to patch bugs or compatibility issues.',
+        ];
+        cause = causes[Math.floor(Math.random() * causes.length)];
+        steps = [
+          'Clear the application cache from Settings > Storage.',
+          'Check Task Manager for applications using excessive CPU or memory.',
+          'Uninstall and reinstall the application from official sources.',
+          'Run Windows Update to ensure OS patches are current.',
+          'Perform a clean boot to isolate problematic background services.',
+        ];
+        sources = ['SW-CACHE-04', 'KB-0882', 'PERF-TUNING-01'];
+      }
+
+      // Non-ticket response
+      if (!category) {
+        text = 'I can only assist with technical support issues. If you have a hardware, software, or connectivity problem, feel free to describe it.';
+        const followUps = generateFollowUps('GENERAL', userMessage, conversationHistory);
+        resolve({ text, diagnostic: null, followUps, retrievalCount: 0 });
+        return;
+      }
+
+      // Generate successful diagnostic response
+      text = 'Retrieved relevant documentation and analyzed your issue. Here\'s the diagnosis:';
+      const diagnostic = { severity, confidence, category, cause, steps, sources };
+      const followUps = generateFollowUps(category, userMessage, conversationHistory);
+      const retrievalCount = 2 + Math.floor(Math.random() * 4);
+
+      resolve({ text, diagnostic, followUps, retrievalCount });
+    }, delay);
+  });
+}
+
+// ──── Severity Badge ─────────────────────────────────────────────────────
+const SeverityBadge = ({ level }) => {
+  const map = {
+    LOW:    { color: 'var(--green)',  bg: 'var(--green-dim)'  },
+    MEDIUM: { color: 'var(--yellow)', bg: 'var(--yellow-dim)' },
+    HIGH:   { color: 'var(--red)',    bg: 'var(--red-dim)'    },
+    CRITICAL: { color: 'var(--red)', bg: 'var(--red-dim)'    },
+  };
+  const s = map[level] || map.LOW;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 7px', fontSize: 9, letterSpacing: '0.1em',
+      fontWeight: 600, fontFamily: 'var(--font-mono)',
+      color: s.color, background: s.bg,
+      border: `1px solid ${s.color}40`,
+      textTransform: 'uppercase',
+    }}>
+      <IconDot /> {level}
+    </span>
+  );
+};
+
+// ──── Confidence Bar ─────────────────────────────────────────────────────
+const ConfidenceBar = ({ score }) => {
+  const color = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--yellow)' : 'var(--red)';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, height: 2, background: 'var(--bg-4)', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${score}%`, background: color, transition: 'width 0.6s ease' }} />
+      </div>
+      <span style={{ fontSize: 10, color, fontFamily: 'var(--font-mono)', minWidth: 32, textAlign: 'right' }}>{score}%</span>
+    </div>
+  );
+};
+
+// ──── Source Pill ────────────────────────────────────────────────────────
+const SourcePill = ({ src }) => (
+  <span style={{
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '2px 8px', fontSize: 10,
+    color: 'var(--text-2)', background: 'var(--bg-3)',
+    border: '1px solid var(--line-bright)',
+    fontFamily: 'var(--font-mono)', cursor: 'default',
+  }}>
+    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+      <circle cx="4" cy="4" r="3" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M4 3v2M4 5.5v.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+    {src}
+  </span>
+);
+
+// ──── Diagnostic Card ────────────────────────────────────────────────────
+const DiagnosticCard = ({ data, showConfidence, showSources, onExpand, isExpanded }) => {
+  return (
+    <div style={{
+      background: 'var(--bg-2)', border: '1px solid var(--line-bright)',
+      overflow: 'hidden',
+    }}>
+      {/* Header row */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+        borderBottom: '1px solid var(--line)', cursor: 'pointer',
+      }} onClick={onExpand}>
+        <SeverityBadge level={data.severity} />
+        {showConfidence && (
+          <div style={{ flex: 1, minWidth: 80 }}>
+            <ConfidenceBar score={data.confidence} />
+          </div>
+        )}
+        <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
+          {data.category}
+        </span>
+        <IconChevron open={isExpanded} />
+      </div>
+
+      {/* Body */}
+      {isExpanded && (
+        <div style={{ padding: '12px 12px 10px' }}>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 4 }}>POSSIBLE CAUSE</div>
+            <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.6, fontFamily: 'var(--font-mono)' }}>{data.cause}</div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 6 }}>RECOMMENDED STEPS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {data.steps.map((step, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)', minWidth: 14, paddingTop: 1 }}>{String(i+1).padStart(2,'0')}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.55, fontFamily: 'var(--font-mono)' }}>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {showSources && data.sources && (
+            <div>
+              <div style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 5 }}>RETRIEVED SOURCES</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {data.sources.map((s, i) => <SourcePill key={i} src={s} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ──── Message Component ──────────────────────────────────────────────────
+const Message = ({ msg, showConfidence, showSources, onFeedback, onFollowUpClick, feedback, onCopy }) => {
+  const [expandedDiag, setExpandedDiag] = React.useState(true);
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = () => {
+    let text = '';
+    if (msg.diagnostic) {
+      text = formatDiagnostic(msg.diagnostic);
+    } else if (msg.text) {
+      text = msg.text;
+    }
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleFeedback = (val) => {
+    if (!feedback) {
+      onFeedback(val);
+      // Log feedback to console (ready for backend integration)
+      console.log(`Feedback recorded: message ${msg.id}, type: ${val}`);
+      // TODO: sendFeedback(msg.id, val) – send to backend when ready
+    }
+  };
+
+  if (msg.role === 'user') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
+        <div style={{ maxWidth: '72%' }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', textAlign: 'right', marginBottom: 4, textTransform: 'uppercase' }}>YOU</div>
+          <div style={{
+            background: 'var(--accent)', color: '#0f0f0f',
+            padding: '9px 13px', fontSize: 12, lineHeight: 1.6,
+            fontFamily: 'var(--font-mono)', fontWeight: 500,
+          }}>
+            {msg.text}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.role === 'system') {
+    return (
+      <div style={{ padding: '4px 0' }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 6, textTransform: 'uppercase' }}>COPILOT</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{
+            background: 'var(--bg-2)', border: '1px solid var(--line)',
+            padding: '9px 13px', fontSize: 12, lineHeight: 1.6,
+            color: 'var(--text-1)', fontFamily: 'var(--font-mono)',
+            display: 'inline-block', maxWidth: '80%',
+          }}>
+            {msg.text}
+          </div>
+          {msg.info && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'var(--accent-dim)', border: '1px solid var(--accent-mid)',
+              padding: '6px 10px', maxWidth: '80%',
+            }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <circle cx="5" cy="5" r="4" stroke="var(--accent)" strokeWidth="1.2"/>
+                <path d="M5 4.5v3M5 3.5v.5" stroke="var(--accent)" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{msg.info}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // assistant
+  return (
+    <div style={{ padding: '4px 0' }}>
+      <div style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 6, textTransform: 'uppercase' }}>COPILOT</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {msg.text && (
+          <div style={{
+            background: 'var(--bg-2)', border: '1px solid var(--line)',
+            padding: '9px 13px', fontSize: 12, lineHeight: 1.65,
+            color: 'var(--text-0)', fontFamily: 'var(--font-mono)',
+            maxWidth: '90%',
+          }}>
+            {msg.text}
+          </div>
+        )}
+        {msg.diagnostic && (
+          <div style={{ maxWidth: '92%' }}>
+            <DiagnosticCard
+              data={msg.diagnostic}
+              showConfidence={showConfidence}
+              showSources={showSources}
+              isExpanded={expandedDiag}
+              onExpand={() => setExpandedDiag(e => !e)}
+            />
+          </div>
+        )}
+        {/* Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 2 }}>
+          <button onClick={handleCopy} style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: copied ? 'var(--green)' : 'var(--text-3)',
+            fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 4px',
+            transition: 'color 0.15s',
+          }}>
+            <IconCopy /> {copied ? 'copied' : 'copy'}
+          </button>
+          <div style={{ width: 1, height: 10, background: 'var(--line-bright)' }} />
+          <button
+            onClick={() => handleFeedback('up')}
+            disabled={!!feedback}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 3,
+              background: 'none', border: 'none', cursor: feedback ? 'default' : 'pointer',
+              color: feedback === 'up' ? 'var(--green)' : 'var(--text-3)',
+              fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 4px',
+              transition: 'color 0.15s', opacity: feedback ? 0.5 : 1,
+            }}>
+            <IconThumbUp /> helpful
+          </button>
+          <button
+            onClick={() => handleFeedback('down')}
+            disabled={!!feedback}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 3,
+              background: 'none', border: 'none', cursor: feedback ? 'default' : 'pointer',
+              color: feedback === 'down' ? 'var(--red)' : 'var(--text-3)',
+              fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 4px',
+              transition: 'color 0.15s', opacity: feedback ? 0.5 : 1,
+            }}>
+            <IconThumbDown /> not helpful
+          </button>
+          {msg.retrievalCount != null && (
+            <>
+              <div style={{ width: 1, height: 10, background: 'var(--line-bright)' }} />
+              <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+                {msg.retrievalCount} chunks retrieved
+              </span>
+            </>
+          )}
+        </div>
+        {/* Follow-ups */}
+        {msg.followUps && msg.followUps.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, paddingTop: 2 }}>
+            {msg.followUps.map((q, i) => (
+              <button key={i} style={{
+                background: 'none', border: '1px solid var(--line-bright)',
+                color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                padding: '4px 9px', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.target.style.borderColor = 'var(--accent)'; e.target.style.color = 'var(--accent)'; }}
+              onMouseLeave={e => { e.target.style.borderColor = 'var(--line-bright)'; e.target.style.color = 'var(--text-2)'; }}
+              onClick={() => onFollowUpClick(q)}>
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ──── Typing Indicator ───────────────────────────────────────────────────
+const TypingIndicator = () => (
+  <div style={{ padding: '4px 0' }}>
+    <div style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 6, textTransform: 'uppercase' }}>COPILOT</div>
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: 'var(--bg-2)', border: '1px solid var(--line)',
+      padding: '10px 14px',
+    }}>
+      {[0,1,2].map(i => (
+        <div key={i} style={{
+          width: 4, height: 4, borderRadius: '50%',
+          background: 'var(--accent)',
+          animation: `bounce 1.2s ease-in-out ${i * 0.18}s infinite`,
+        }} />
+      ))}
+    </div>
+  </div>
+);
+
+// ──── RAG Status Panel ───────────────────────────────────────────────────
+const RAGStatusPanel = ({ retrievalLog }) => {
+  const scrollRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [retrievalLog]);
+
+  const queryCount = retrievalLog.filter(e => e.chunks != null).length;
+  const scoreEntries = retrievalLog.filter(e => e.score != null);
+  const avgScore = scoreEntries.length > 0
+    ? Math.round(scoreEntries.reduce((a,b) => a + b.score, 0) / scoreEntries.length)
+    : 0;
+
+  return (
+    <div style={{
+      width: 280, flexShrink: 0,
+      background: 'var(--bg-1)', borderLeft: '1px solid var(--line)',
+      display: 'flex', flexDirection: 'column',
+      fontFamily: 'var(--font-mono)',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '12px 14px', borderBottom: '1px solid var(--line)',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <span style={{ color: 'var(--accent)', display: 'flex' }}><IconChroma /></span>
+        <span style={{ fontSize: 10, color: 'var(--text-1)', letterSpacing: '0.08em' }}>RETRIEVAL LOG</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 4px var(--green)' }} />
+          <span style={{ fontSize: 9, color: 'var(--text-3)' }}>LIVE</span>
+        </div>
+      </div>
+
+      {/* Engine badges */}
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', display: 'flex', gap: 6 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '4px 8px', border: '1px solid var(--line-bright)',
+          color: 'var(--text-2)', fontSize: 9, letterSpacing: '0.07em',
+        }}>
+          <IconDeepseek /> DEEPSEEK-R1
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '4px 8px', border: '1px solid var(--line-bright)',
+          color: 'var(--text-2)', fontSize: 9, letterSpacing: '0.07em',
+        }}>
+          <IconChroma /> CHROMA DB
+        </div>
+      </div>
+
+      {/* Log entries */}
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {retrievalLog.length === 0 && (
+          <div style={{ color: 'var(--text-3)', fontSize: 10, paddingTop: 8 }}>Waiting for query…</div>
+        )}
+        {retrievalLog.map((entry, i) => (
+          <div key={i} style={{
+            borderLeft: '2px solid var(--accent-mid)', paddingLeft: 8,
+          }}>
+            <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 2 }}>{entry.time}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-1)', marginBottom: 3, lineHeight: 1.5 }}>{entry.action}</div>
+            {entry.score != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-3)' }}>score</span>
+                <ConfidenceBar score={entry.score} />
+              </div>
+            )}
+            {entry.chunks != null && (
+              <div style={{ fontSize: 9, color: 'var(--text-3)', marginTop: 2 }}>
+                {entry.chunks} chunks · {entry.latency}ms
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer stats */}
+      <div style={{ padding: '10px 14px', borderTop: '1px solid var(--line)', display: 'flex', gap: 14 }}>
+        {[
+          { label: 'QUERIES', val: queryCount },
+          { label: 'AVG SCORE', val: queryCount > 0 ? avgScore + '%' : '—' },
+          { label: 'MODEL', val: 'R1' },
+        ].map(stat => (
+          <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 8, color: 'var(--text-3)', letterSpacing: '0.1em' }}>{stat.label}</span>
+            <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>{stat.val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ──── Main App ───────────────────────────────────────────────────────────
+const App = () => {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [messages, setMessages] = React.useState([
+    {
+      id: 'init', role: 'system',
+      text: 'I\'m a RAG-powered support copilot. Describe a technical issue and I\'ll retrieve relevant documentation and diagnose it.',
+      info: 'Powered by DeepSeek-R1 · ChromaDB vector store',
+    },
+  ]);
+  const [input, setInput] = React.useState('');
+  const [isTyping, setIsTyping] = React.useState(false);
+  const [retrievalLog, setRetrievalLog] = React.useState([]);
+  const [feedbackMap, setFeedbackMap] = React.useState({});
+  const bottomRef = React.useRef(null);
+  const textareaRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.parentElement.scrollTop = bottomRef.current.offsetTop;
+    }
+  }, [messages, isTyping]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text) return;
+
+    const userMsg = { id: Date.now(), role: 'user', text };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInput('');
+    setIsTyping(true);
+
+    // Update RAG log
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    setRetrievalLog(prev => [...prev, { time: ts, action: 'Processing user query…', score: null, chunks: null, latency: null }]);
+
+    // Simulate retrieval delay
+    await new Promise(r => setTimeout(r, 300));
+    const retrievalEntries = mockRetrieval(text);
+    setRetrievalLog(prev => [...prev, ...retrievalEntries]);
+
+    // Call mock backend
+    try {
+      const response = await mockBackend(text, newMessages);
+      const botMsg = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        text: response.text,
+        diagnostic: response.diagnostic,
+        followUps: response.followUps,
+        retrievalCount: response.retrievalCount,
+      };
+      setMessages(prev => [...prev, botMsg]);
+    } catch (error) {
+      console.error('Mock backend error:', error);
+      const errorMsg = {
+        id: Date.now() + 1,
+        role: 'system',
+        text: 'An error occurred while processing your request. Please try again.',
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    }
+
+    setIsTyping(false);
+  };
+
+  const handleFollowUpClick = (question) => {
+    setInput(question);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        // Simulate send after brief delay
+        setTimeout(() => {
+          const userMsg = { id: Date.now(), role: 'user', text: question };
+          const newMessages = [...messages, userMsg];
+          setMessages(newMessages);
+          setInput('');
+          setIsTyping(true);
+
+          const now = new Date();
+          const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+          setRetrievalLog(prev => [...prev, { time: ts, action: 'Processing follow-up query…', score: null, chunks: null, latency: null }]);
+
+          setTimeout(() => {
+            const retrievalEntries = mockRetrieval(question);
+            setRetrievalLog(prev => [...prev, ...retrievalEntries]);
+          }, 300);
+
+          mockBackend(question, newMessages).then(response => {
+            const botMsg = {
+              id: Date.now() + 1,
+              role: 'assistant',
+              text: response.text,
+              diagnostic: response.diagnostic,
+              followUps: response.followUps,
+              retrievalCount: response.retrievalCount,
+            };
+            setMessages(prev => [...prev, botMsg]);
+            setIsTyping(false);
+          });
+        }, 150);
+      }
+    }, 50);
+  };
+
+  const handleFeedback = (messageId, type) => {
+    if (!feedbackMap[messageId]) {
+      setFeedbackMap(prev => ({ ...prev, [messageId]: type }));
+    }
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const accentHue = tweaks.accentHue;
+  const dynamicAccent = `oklch(65% 0.12 ${accentHue})`;
+  const dynamicAccentDim = `oklch(65% 0.12 ${accentHue} / 0.15)`;
+  const dynamicAccentMid = `oklch(65% 0.12 ${accentHue} / 0.35)`;
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-mono)',
+      '--accent': dynamicAccent, '--accent-dim': dynamicAccentDim, '--accent-mid': dynamicAccentMid,
+    }}>
+      {/* Top bar */}
+      <div style={{
+        height: 44, display: 'flex', alignItems: 'center', padding: '0 16px',
+        background: 'var(--bg-1)', borderBottom: '1px solid var(--line)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 24, height: 24, background: 'var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#0f0f0f', letterSpacing: '0.05em' }}>SC</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-0)', letterSpacing: '0.06em', fontWeight: 500 }}>SUPPORT COPILOT</div>
+          </div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px var(--green)' }} />
+            <span style={{ fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.08em' }}>DEEPSEEK-R1</span>
+          </div>
+          <div style={{ width: 1, height: 12, background: 'var(--line-bright)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px var(--green)' }} />
+            <span style={{ fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.08em' }}>CHROMA DB</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main area */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Chat column */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: tweaks.compactMessages ? '12px 20px' : '20px 24px', display: 'flex', flexDirection: 'column', gap: tweaks.compactMessages ? 8 : 14 }}>
+            {messages.map(msg => (
+              <Message
+                key={msg.id}
+                msg={msg}
+                showConfidence={tweaks.showConfidence}
+                showSources={tweaks.showSources}
+                feedback={feedbackMap[msg.id]}
+                onFeedback={(type) => handleFeedback(msg.id, type)}
+                onFollowUpClick={handleFollowUpClick}
+              />
+            ))}
+            {isTyping && <TypingIndicator />}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input area */}
+          <div style={{
+            background: 'var(--bg-1)', borderTop: '1px solid var(--line)',
+            padding: '12px 24px 14px',
+          }}>
+            <div style={{
+              display: 'flex', gap: 10, alignItems: 'flex-end',
+              background: 'var(--bg-2)', border: '1px solid var(--line-bright)',
+              padding: '10px 12px',
+              transition: 'border-color 0.2s',
+            }}>
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder="Describe the support issue…"
+                rows={1}
+                style={{
+                  flex: 1, background: 'none', border: 'none', outline: 'none', resize: 'none',
+                  color: 'var(--text-0)', fontFamily: 'var(--font-mono)', fontSize: tweaks.fontScale,
+                  lineHeight: 1.55, maxHeight: 120, overflowY: 'auto',
+                }}
+                onInput={e => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim()}
+                style={{
+                  width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: input.trim() ? 'var(--accent)' : 'var(--bg-4)',
+                  border: 'none', cursor: input.trim() ? 'pointer' : 'default',
+                  color: input.trim() ? '#0f0f0f' : 'var(--text-3)',
+                  transition: 'all 0.15s', flexShrink: 0,
+                }}
+              >
+                <IconSend />
+              </button>
+            </div>
+            <div style={{ marginTop: 5, display: 'flex', gap: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-3)' }}>Enter to send</span>
+              <span style={{ fontSize: 9, color: 'var(--text-3)' }}>·</span>
+              <span style={{ fontSize: 9, color: 'var(--text-3)' }}>Shift+Enter for new line</span>
+            </div>
+          </div>
+        </div>
+
+        {/* RAG Panel */}
+        {tweaks.splitLayout && <RAGStatusPanel retrievalLog={retrievalLog} />}
+      </div>
+
+      {/* Tweaks Panel */}
+      <TweaksPanel>
+        <TweakSection label="Appearance">
+          <TweakSlider
+            label="Accent hue"
+            value={tweaks.accentHue}
+            min={20}
+            max={340}
+            step={5}
+            onChange={(v) => setTweak('accentHue', v)}
+          />
+          <TweakSlider
+            label="Font size"
+            value={tweaks.fontScale}
+            min={11}
+            max={16}
+            step={1}
+            unit="px"
+            onChange={(v) => setTweak('fontScale', v)}
+          />
+        </TweakSection>
+        <TweakSection label="Layout">
+          <TweakToggle
+            label="Split RAG panel"
+            value={tweaks.splitLayout}
+            onChange={(v) => setTweak('splitLayout', v)}
+          />
+          <TweakToggle
+            label="Compact messages"
+            value={tweaks.compactMessages}
+            onChange={(v) => setTweak('compactMessages', v)}
+          />
+        </TweakSection>
+        <TweakSection label="Diagnostic cards">
+          <TweakToggle
+            label="Show confidence score"
+            value={tweaks.showConfidence}
+            onChange={(v) => setTweak('showConfidence', v)}
+          />
+          <TweakToggle
+            label="Show sources"
+            value={tweaks.showSources}
+            onChange={(v) => setTweak('showSources', v)}
+          />
+        </TweakSection>
+      </TweaksPanel>
+
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-4px); opacity: 1; }
+        }
+        textarea::placeholder { color: var(--text-3); }
+        textarea:focus { outline: none; }
+      `}</style>
+    </div>
+  );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

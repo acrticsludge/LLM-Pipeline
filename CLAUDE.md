@@ -53,3 +53,7 @@ Follow these rules on every change — new files, edits, refactors, and fixes.
 ### Forms
 
 - `react-hook-form` + `zod` + `@hookform/resolvers` for all forms.
+
+### README.md
+
+- Always update README.md after every edit you make.
