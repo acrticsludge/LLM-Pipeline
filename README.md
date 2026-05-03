@@ -72,6 +72,100 @@ An AI-powered support ticket resolution system using Retrieval-Augmented Generat
 
 ---
 
+## Backend Endpoints
+
+### `POST /query` (SSE Stream)
+
+Real-time streaming resolution with retrieval transparency.
+
+**Request:**
+```json
+{ "question": "DB timeout issue", "strict": false, "api_key": "hf_..." }
+```
+
+**Response (Server-Sent Events):**
+
+1. **Chunk events** (streaming LLM tokens):
+```json
+{"type": "chunk", "content": "The database timeout...", "confidence": 0.89, "sources": [...]}
+```
+
+2. **Done event** (final structured response):
+```json
+{
+  "type": "done",
+  "type_discrimination": "ticket",
+  "resolution": {
+    "possible_cause": "Query time limit exceeded",
+    "recommended_steps": ["Increase timeout", "Check indexes"],
+    "urgency": "high",
+    "sentiment": "negative",
+    "disclaimer": "Verify in your environment"
+  },
+  "sources": [{"content": "...", "score": 0.95, "filename": "db-guide.md"}],
+  "confidence": 0.89,
+  "corrected_query": "database timeout issue"
+}
+```
+
+### `POST /ingest`
+
+Chunk, embed, and store documents.
+
+**Request:**
+```
+Content-Type: multipart/form-data
+Authorization: Bearer hf_...
+files: [support-docs.txt, faq.md]
+```
+
+**Response:**
+```json
+{ "chunks_stored": 42, "filenames": ["support-docs.txt", "faq.md"] }
+```
+
+### `GET /status`
+
+Check document store health.
+
+**Response:**
+```json
+{
+  "total_chunks": 1250,
+  "last_ingestion": "2026-05-03T12:34:56Z"
+}
+```
+
+### `POST /feedback` (Optional)
+
+Record user satisfaction for ML training.
+
+**Request:**
+```json
+{ "question": "DB timeout issue", "feedback": "up" }
+```
+
+**Response:**
+```json
+{ "status": "recorded", "feedback_type": "up" }
+```
+
+### `GET /metrics` (Optional)
+
+Analytics dashboard data.
+
+**Response:**
+```json
+{
+  "total_queries": 342,
+  "total_feedback": {"up": 285, "down": 57},
+  "avg_confidence": 0.82,
+  "total_chunks_ingested": 1250
+}
+```
+
+---
+
 ## Quick Start
 
 ### Prerequisites
