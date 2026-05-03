@@ -77,57 +77,56 @@ An AI-powered support ticket resolution system using Retrieval-Augmented Generat
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 18+
+- Any modern browser (Chrome, Firefox, Safari, Edge)
+- **Optional:** Node.js 18+ (only for Next.js frontend)
 
-### 1. Clone & configure
+### Option A: Single-File HTML (Fastest)
 
 ```bash
+# 1. Clone repo and configure
 git clone <repo>
 cd LLM-Pipeline
-```
 
-Create `backend/.env`:
-```env
-HF_API_KEY=hf_your_key_here
-```
+# 2. Create backend/.env
+echo "HF_API_KEY=hf_your_key_here" > backend/.env
 
-Create `frontend/.env.local`:
-```bash
-cp frontend/.env.local.template frontend/.env.local
-# Edit NEXT_PUBLIC_BACKEND_URL if your backend runs on a different port
-```
-
-### 2. Start the backend
-
-```bash
+# 3. Start the backend
 cd backend
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-
+venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 python server.py
 # → http://localhost:8000
+
+# 4. Open copilot.html in your browser
+# File → Open File → select copilot.html
+# Or: open file:///<absolute-path>/LLM-Pipeline/copilot.html in browser
 ```
 
-### 3. Start the frontend
+Then:
+1. Enter your Hugging Face API key in the Settings panel
+2. Upload `.txt` or `.md` documents via drop zone
+3. Ask about any support issue
+
+### Option B: Next.js Full-Stack Frontend
 
 ```bash
+# 1-2. Same setup as above (backend .env)
+
+# 3. Start the backend
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python server.py
+
+# 4. In another terminal, start Next.js frontend
 cd frontend
 npm install
 npm run dev
 # → http://localhost:3000
 ```
-
-### 4. Use it
-
-1. Open `http://localhost:3000`
-2. Enter your Hugging Face API key in the sidebar
-3. Upload `.txt` or `.md` support documents via the sidebar drop zone
-4. Ask about any support issue in the chat
 
 ---
 
@@ -139,21 +138,26 @@ LLM-Pipeline/
 │   ├── server.py          # FastAPI: ingest, query SSE, status
 │   ├── requirements.txt
 │   └── chroma_db/         # auto-created at runtime
-├── frontend/
+├── copilot.html           # Single-file React app (standalone)
+│   ├── All React components (App, Sidebar, ChatInterface, etc)
+│   ├── SSE streaming handler
+│   ├── File upload (FormData /ingest)
+│   └── Status polling (/status)
+├── frontend/ (Optional: Next.js version)
 │   ├── app/
 │   │   ├── page.tsx       # entry point → ChatInterface
 │   │   ├── layout.tsx
-│   │   └── globals.css    # dark theme CSS variables
+│   │   └── globals.css
 │   ├── components/
-│   │   ├── ChatInterface.tsx   # main client component, SSE state
-│   │   ├── Sidebar.tsx         # API key, strict mode, upload, status
-│   │   ├── MessageBubble.tsx   # user/assistant bubbles
-│   │   ├── ResolutionCard.tsx  # urgency badge, steps, sentiment
-│   │   └── SourcesSection.tsx  # collapsible retrieved chunks
+│   │   ├── ChatInterface.tsx
+│   │   ├── Sidebar.tsx
+│   │   ├── MessageBubble.tsx
+│   │   ├── ResolutionCard.tsx
+│   │   └── SourcesSection.tsx
 │   ├── lib/
-│   │   ├── types.ts       # shared TypeScript types
-│   │   ├── sse.ts         # fetch + ReadableStream SSE consumer
-│   │   └── api.ts         # ingest, status API wrappers
+│   │   ├── types.ts
+│   │   ├── sse.ts
+│   │   └── api.ts
 │   └── .env.local.template
 └── README.md
 ```
@@ -184,6 +188,43 @@ These are recognized as real support issues and return a Resolution Card:
 - "My database keeps timing out during peak hours"
 - "How do I fix a 502 error in my application?"
 - "Application crashes on startup with seg fault"
+
+---
+
+## copilot.html Configuration
+
+### Backend URL
+
+Edit `copilot.html` line 312:
+```javascript
+const BACKEND_URL = 'http://localhost:8000';
+```
+
+Or change it dynamically in the Settings panel (⚙️ Collapsible → Backend URL).
+
+### Browser Security Notes
+
+- **Local file:** `file:///...` URLs block fetch requests. Use a simple HTTP server:
+  ```bash
+  # Python 3
+  python -m http.server 8080
+  # Open http://localhost:8080/copilot.html
+  
+  # Node.js (http-server)
+  npx http-server .
+  ```
+
+- **CORS:** Backend must allow `http://localhost:3000` (or your frontend origin) in `server.py`:
+  ```python
+  from fastapi.middleware.cors import CORSMiddleware
+  
+  app.add_middleware(
+      CORSMiddleware,
+      allow_origins=["http://localhost:3000", "http://localhost:8080"],
+      allow_methods=["*"],
+      allow_headers=["*"],
+  )
+  ```
 
 ---
 

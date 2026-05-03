@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Support Copilot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #475569;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #06b6d4;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #root {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100%;
+            gap: 0;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 16px;
+            gap: 16px;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: #1a2332;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .form-input[type="password"] {
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 24px;
+            background: var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            padding: 2px;
+        }
+
+        .toggle-switch.active {
+            background: var(--success);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            left: 18px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn.secondary:hover:not(:disabled) {
+            background: var(--border);
+        }
+
+        .status-panel {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            color: var(--text-secondary);
+        }
+
+        .status-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .messages-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-area::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .messages-area::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        .message-group {
+            display: flex;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: var(--accent);
+            color: white;
+            margin-left: auto;
+        }
+
+        .assistant-message {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            align-self: flex-start;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .system-message {
+            background: rgba(106, 17, 203, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #a78bfa;
+            align-self: center;
+            text-align: center;
+            padding: 10px 16px;
+            font-size: 13px;
+            max-width: 80%;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            height: 24px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                opacity: 0.5;
+                transform: translateY(0);
+            }
+            40% {
+                opacity: 1;
+                transform: translateY(-8px);
+            }
+        }
+
+        .resolution-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .resolution-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .urgency-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .urgency-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .urgency-high {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+
+        .urgency-medium {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+
+        .urgency-low {
+            background: rgba(16, 185, 129, 0.2);
+            color: #86efac;
+        }
+
+        .sentiment-emoji {
+            font-size: 18px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .steps-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-left: 0;
+        }
+
+        .steps-list li {
+            display: flex;
+            gap: 10px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .steps-list li::before {
+            content: '→';
+            color: var(--accent);
+            font-weight: bold;
+            min-width: 20px;
+        }
+
+        .disclaimer {
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 8px;
+            background: rgba(100, 116, 139, 0.2);
+            border-radius: 4px;
+            border-left: 2px solid var(--text-secondary);
+        }
+
+        .sources-section {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(51, 65, 85, 0.4);
+            border-radius: 6px;
+        }
+
+        .sources-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            padding: 0;
+            margin-bottom: 8px;
+        }
+
+        .sources-toggle:hover {
+            color: var(--text-primary);
+        }
+
+        .source-item {
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .source-score {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 8px;
+            background: var(--accent);
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-primary);
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .input-wrapper input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-zone.active {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .upload-progress {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .settings-panel {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text-primary);
+            background: none;
+            border: none;
+            padding: 0;
+            width: 100%;
+        }
+
+        .collapsible-header:hover {
+            color: var(--accent);
+        }
+
+        .collapsible-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .error-message {
+            padding: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .warning-message {
+            padding: 10px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fcd34d;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .copy-button {
+            font-size: 11px;
+            padding: 6px 10px;
+            margin-top: 8px;
+        }
+
+        .copy-button.copied {
+            background: var(--success);
+        }
+
+        .retrieval-log {
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-entry.active {
+            color: var(--accent);
+        }
+
+        .feedback-prompt {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .feedback-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .feedback-btn {
+            flex: 1;
+            padding: 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .feedback-btn:hover {
+            background: var(--border);
+        }
+
+        .feedback-btn.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // Configuration
+        const BACKEND_URL = 'http://localhost:8000';
+
+        // Main App Component
+        function App() {
+            const [apiKey, setApiKey] = useState('');
+            const [backendUrl, setBackendUrl] = useState(BACKEND_URL);
+            const [strictMode, setStrictMode] = useState(false);
+            const [messages, setMessages] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [totalChunks, setTotalChunks] = useState(0);
+            const [lastIngestion, setLastIngestion] = useState('Never');
+            const [retrievalLog, setRetrievalLog] = useState([]);
+            const [error, setError] = useState('');
+            const [uploadProgress, setUploadProgress] = useState('');
+            const messagesEndRef = useRef(null);
+
+            // Scroll to bottom on new messages
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            // Fetch status on mount
+            useEffect(() => {
+                fetchStatus();
+                const interval = setInterval(fetchStatus, 30000); // Refresh every 30s
+                return () => clearInterval(interval);
+            }, [backendUrl]);
+
+            const fetchStatus = async () => {
+                try {
+                    const response = await fetch(`${backendUrl}/status`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setTotalChunks(data.total_chunks || 0);
+                        if (data.last_ingestion) {
+                            const date = new Date(data.last_ingestion);
+                            setLastIngestion(date.toLocaleString());
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch status:', err);
+                }
+            };
+
+            const handleSendMessage = async (text) => {
+                if (!text.trim()) return;
+
+                if (!apiKey.trim()) {
+                    setError('API key is required. Enter it in the settings above.');
+                    return;
+                }
+
+                setError('');
+
+                // Add user message
+                const userMessage = { id: Date.now(), role: 'user', text };
+                setMessages(prev => [...prev, userMessage]);
+
+                // Add placeholder for assistant
+                const assistantId = Date.now() + 1;
+                setMessages(prev => [...prev, {
+                    id: assistantId,
+                    role: 'assistant',
+                    text: '',
+                    isStreaming: true,
+                    diagnostic: null,
+                    confidence: 0,
+                    sources: [],
+                    retrievalCount: 0,
+                    type: 'ticket'
+                }]);
+
+                setIsLoading(true);
+                const startTime = Date.now();
+                setRetrievalLog([{ time: new Date(), action: 'Embedding query → vector search...' }]);
+
+                try {
+                    const response = await fetch(`${backendUrl}/query`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            question: text,
+                            strict: strictMode,
+                            api_key: apiKey
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let firstChunk = true;
+                    let retrievalComplete = false;
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (!line.startsWith('data: ')) continue;
+
+                            try {
+                                const event = JSON.parse(line.slice(6));
+
+                                if (event.type === 'chunk') {
+                                    if (firstChunk) {
+                                        const retrievalTime = Date.now() - startTime;
+                                        setRetrievalLog(prev => [
+                                            ...prev,
+                                            { time: new Date(), action: 'Retrieval complete', score: (event.confidence || 0).toFixed(2), chunks: event.sources?.length || 0, latency: `${retrievalTime}ms` }
+                                        ]);
+                                        firstChunk = false;
+                                        retrievalComplete = true;
+                                    }
+
+                                    setMessages(prev => {
+                                        const updated = [...prev];
+                                        const idx = updated.findIndex(m => m.id === assistantId);
+                                        if (idx !== -1) {
+                                            updated[idx] = {
+                                                ...updated[idx],
+                                                text: updated[idx].text + event.content
+                                            };
+                                        }
+                                        return updated;
+                                    });
+                                } else if (event.type === 'done') {
+                                    const totalTime = Date.now() - startTime;
+                                    const messageType = event.type_discrimination || 'ticket';
+
+                                    setMessages(prev => {
+                                        const updated = [...prev];
+                                        const idx = updated.findIndex(m => m.id === assistantId);
+                                        if (idx !== -1) {
+                                            updated[idx] = {
+                                                ...updated[idx],
+                                                isStreaming: false,
+                                                diagnostic: event.resolution || event.message,
+                                                confidence: event.confidence || 0,
+                                                sources: event.sources || [],
+                                                retrievalCount: (event.sources || []).length,
+                                                type: messageType,
+                                                feedback: null
+                                            };
+                                        }
+                                        return updated;
+                                    });
+
+                                    setRetrievalLog(prev => [
+                                        ...prev,
+                                        { time: new Date(), action: 'LLM inference complete', latency: `${totalTime}ms` }
+                                    ]);
+                                }
+                            } catch (parseErr) {
+                                console.error('Failed to parse SSE event:', parseErr);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    setError(`Error: ${err.message || 'Failed to connect to backend'}`);
+                    setMessages(prev => prev.filter(m => m.id !== assistantId));
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleUploadFiles = async (files) => {
+                if (files.length === 0) return;
+
+                if (!apiKey.trim()) {
+                    setError('API key is required. Enter it in the settings above.');
+                    return;
+                }
+
+                setError('');
+                setUploadProgress(`Uploading ${files.length} file(s)...`);
+
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('files', file);
+                }
+
+                try {
+                    const response = await fetch(`${backendUrl}/ingest`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Upload failed: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    setUploadProgress(`Successfully ingested ${data.chunks_stored || 0} chunks`);
+
+                    // Refresh status
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    fetchStatus();
+
+                    // Clear message after 3s
+                    setTimeout(() => setUploadProgress(''), 3000);
+                } catch (err) {
+                    setError(`Upload failed: ${err.message}`);
+                }
+            };
+
+            const handleCopyResolution = (diagnostic) => {
+                if (!diagnostic) return;
+
+                let text = '';
+                if (diagnostic.possible_cause) {
+                    text += `Possible Cause: ${diagnostic.possible_cause}\n\n`;
+                }
+                if (diagnostic.recommended_steps && Array.isArray(diagnostic.recommended_steps)) {
+                    text += `Recommended Steps:\n${diagnostic.recommended_steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n`;
+                }
+                if (diagnostic.disclaimer) {
+                    text += `Disclaimer: ${diagnostic.disclaimer}`;
+                }
+
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Resolution copied to clipboard');
+                }).catch(err => {
+                    console.error('Copy failed:', err);
+                });
+            };
+
+            return (
+                <div className="app-container">
+                    <Sidebar
+                        apiKey={apiKey}
+                        setApiKey={setApiKey}
+                        backendUrl={backendUrl}
+                        setBackendUrl={setBackendUrl}
+                        strictMode={strictMode}
+                        setStrictMode={setStrictMode}
+                        totalChunks={totalChunks}
+                        lastIngestion={lastIngestion}
+                        onUpload={handleUploadFiles}
+                        uploadProgress={uploadProgress}
+                        retrievalLog={retrievalLog}
+                    />
+                    <div className="chat-container">
+                        <div className="messages-area">
+                            {messages.length === 0 && (
+                                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>
+                                    <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔍</div>
+                                    <p>Welcome to RAG Support Copilot</p>
+                                    <p style={{ fontSize: '12px', marginTop: '8px' }}>Enter your API key in the sidebar, upload documents, and ask for help</p>
+                                </div>
+                            )}
+                            {messages.map(msg => (
+                                <div key={msg.id}>
+                                    {msg.role === 'user' && (
+                                        <div className="message-group">
+                                            <div className="message-bubble user-message">{msg.text}</div>
+                                        </div>
+                                    )}
+                                    {msg.role === 'system' && (
+                                        <div className="message-group">
+                                            <div className="system-message">{msg.text}</div>
+                                        </div>
+                                    )}
+                                    {msg.role === 'assistant' && (
+                                        <div className="message-group">
+                                            <div className="assistant-message">
+                                                {msg.isStreaming ? (
+                                                    <>
+                                                        {msg.text && <div>{msg.text}</div>}
+                                                        {!msg.text && <div className="typing-indicator">
+                                                            <div className="typing-dot"></div>
+                                                            <div className="typing-dot"></div>
+                                                            <div className="typing-dot"></div>
+                                                        </div>}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div>{msg.text}</div>
+                                                        {msg.type === 'ticket' && msg.diagnostic && (
+                                                            <ResolutionCard
+                                                                diagnostic={msg.diagnostic}
+                                                                confidence={msg.confidence}
+                                                                sources={msg.sources}
+                                                                onCopy={() => handleCopyResolution(msg.diagnostic)}
+                                                            />
+                                                        )}
+                                                        {msg.type === 'non-ticket' && (
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+                                                                This doesn't appear to be a support issue. Please ask about a technical problem.
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
+                        <div>
+                            {error && <div className="error-message">{error}</div>}
+                        </div>
+                        <InputArea onSendMessage={handleSendMessage} isLoading={isLoading} isConfigured={!!apiKey} />
+                    </div>
+                </div>
+            );
+        }
+
+        // Sidebar Component
+        function Sidebar({ apiKey, setApiKey, backendUrl, setBackendUrl, strictMode, setStrictMode, totalChunks, lastIngestion, onUpload, uploadProgress, retrievalLog }) {
+            const [settingsOpen, setSettingsOpen] = useState(false);
+            const fileInputRef = useRef(null);
+
+            const handleFileSelect = (e) => {
+                const files = Array.from(e.target.files || []);
+                onUpload(files);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.currentTarget.classList.add('active');
+            };
+
+            const handleDragLeave = (e) => {
+                e.currentTarget.classList.remove('active');
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('active');
+                const files = Array.from(e.dataTransfer.files);
+                onUpload(files);
+            };
+
+            return (
+                <div className="sidebar">
+                    <div className="sidebar-section">
+                        <h3 className="sidebar-title">Settings</h3>
+                        <button
+                            className="collapsible-header"
+                            onClick={() => setSettingsOpen(!settingsOpen)}
+                        >
+                            <span>{settingsOpen ? '▼' : '▶'}</span>
+                            <span>Configuration</span>
+                        </button>
+                        {settingsOpen && (
+                            <div className="settings-panel">
+                                <div className="form-group">
+                                    <label className="form-label">Hugging Face API Key</label>
+                                    <input
+                                        type="password"
+                                        className="form-input"
+                                        placeholder="hf_..."
+                                        value={apiKey}
+                                        onChange={(e) => setApiKey(e.target.value)}
+                                    />
+                                </div>
+                                <div className="toggle-group">
+                                    <span className="form-label">Strict Mode</span>
+                                    <button
+                                        className={`toggle-switch ${strictMode ? 'active' : ''}`}
+                                        onClick={() => setStrictMode(!strictMode)}
+                                        title="Require high confidence retrieval to answer"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Backend URL</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="http://localhost:8000"
+                                        value={backendUrl}
+                                        onChange={(e) => setBackendUrl(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="sidebar-section">
+                        <h3 className="sidebar-title">Documents</h3>
+                        <div
+                            className="upload-zone"
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <div>📄 Drop files or click</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                .txt, .md
+                            </div>
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept=".txt,.md"
+                            onChange={handleFileSelect}
+                            style={{ display: 'none' }}
+                        />
+                        {uploadProgress && (
+                            <div className="upload-progress">{uploadProgress}</div>
+                        )}
+                    </div>
+
+                    <div className="sidebar-section">
+                        <h3 className="sidebar-title">Status</h3>
+                        <div className="status-panel">
+                            <div className="status-item">
+                                <span>Documents:</span>
+                                <span className="status-value">{totalChunks}</span>
+                            </div>
+                            <div className="status-item">
+                                <span>Last Added:</span>
+                                <span className="status-value" style={{ fontSize: '11px' }}>{lastIngestion}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {retrievalLog.length > 0 && (
+                        <div className="sidebar-section">
+                            <h3 className="sidebar-title">Activity Log</h3>
+                            <div className="retrieval-log">
+                                {retrievalLog.map((entry, idx) => (
+                                    <div key={idx} className="log-entry">
+                                        <span>{entry.action}</span>
+                                        {entry.latency && <span>{entry.latency}</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Resolution Card Component
+        function ResolutionCard({ diagnostic, confidence, sources, onCopy }) {
+            const [sourcesOpen, setSourcesOpen] = useState(false);
+
+            const getUrgencyClass = (urgency) => {
+                const level = (urgency || 'low').toLowerCase();
+                return `urgency-${level}`;
+            };
+
+            const getSentimentEmoji = (sentiment) => {
+                const sent = (sentiment || 'neutral').toLowerCase();
+                const map = {
+                    positive: '😊',
+                    negative: '😞',
+                    neutral: '😐'
+                };
+                return map[sent] || '😐';
+            };
+
+            return (
+                <div className="resolution-card">
+                    <div className="resolution-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={`urgency-badge ${getUrgencyClass(diagnostic.urgency)}`}>
+                                {(diagnostic.urgency || 'Low').toUpperCase()}
+                            </span>
+                            <span className="sentiment-emoji">{getSentimentEmoji(diagnostic.sentiment)}</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Confidence: {(confidence * 100).toFixed(0)}%
+                        </div>
+                    </div>
+
+                    {diagnostic.possible_cause && (
+                        <>
+                            <div className="section-title">Possible Cause</div>
+                            <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
+                                {diagnostic.possible_cause}
+                            </div>
+                        </>
+                    )}
+
+                    {diagnostic.recommended_steps && Array.isArray(diagnostic.recommended_steps) && diagnostic.recommended_steps.length > 0 && (
+                        <>
+                            <div className="section-title">Recommended Steps</div>
+                            <ul className="steps-list">
+                                {diagnostic.recommended_steps.map((step, idx) => (
+                                    <li key={idx}>{step}</li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
+
+                    {diagnostic.disclaimer && (
+                        <div className="disclaimer">
+                            ⚠️ {diagnostic.disclaimer}
+                        </div>
+                    )}
+
+                    {sources && sources.length > 0 && (
+                        <div className="sources-section">
+                            <button
+                                className="sources-toggle"
+                                onClick={() => setSourcesOpen(!sourcesOpen)}
+                            >
+                                <span>{sourcesOpen ? '▼' : '▶'}</span>
+                                <span>Sources ({sources.length})</span>
+                            </button>
+                            {sourcesOpen && (
+                                <div>
+                                    {sources.map((source, idx) => (
+                                        <div key={idx} className="source-item">
+                                            {source.text || source}
+                                            {source.score !== undefined && (
+                                                <span className="source-score">{(source.score * 100).toFixed(0)}%</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <button className="btn copy-button" onClick={onCopy}>
+                        📋 Copy Resolution
+                    </button>
+                </div>
+            );
+        }
+
+        // Input Area Component
+        function InputArea({ onSendMessage, isLoading, isConfigured }) {
+            const [input, setInput] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSendMessage(input);
+                setInput('');
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="input-area">
+                    <div className="input-wrapper">
+                        <input
+                            type="text"
+                            placeholder={isConfigured ? "Describe your issue..." : "Set API key in Settings first"}
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            disabled={!isConfigured || isLoading}
+                        />
+                        <button
+                            type="submit"
+                            className="btn"
+                            disabled={!isConfigured || isLoading || !input.trim()}
+                        >
+                            {isLoading ? '...' : '→'}
+                        </button>
+                    </div>
+                </form>
+            );
+        }
+
+        // Render app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
