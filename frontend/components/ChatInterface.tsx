@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Sidebar, { type TweaksSettings } from "./Sidebar";
 import MessageBubble from "./MessageBubble";
+import RAGStatusPanel from "./RAGStatusPanel";
 import { streamSSE } from "@/lib/sse";
 import { getQueryUrl } from "@/lib/api";
 import type { Message, RetrievalLogEntry } from "@/lib/types";
@@ -61,10 +62,13 @@ export default function ChatInterface() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<ChatForm>({
     resolver: zodResolver(chatSchema),
   });
+
+  const question = watch("question") || "";
 
   const handleSettingsChange = useCallback((key: string, strictMode: boolean) => {
     setApiKey(key);
@@ -215,112 +219,288 @@ export default function ChatInterface() {
   };
 
   const canSend = !!apiKey && !isLoading;
+  const currentLog = (messages.length > 0 && messages[messages.length - 1]?.retrievalLog) || [];
 
   return (
     <div
-      className="flex h-screen overflow-hidden bg-[var(--background)]"
       style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: '"IBM Plex Mono", monospace',
+        background: "#0f0f0f",
         "--accent-hue": tweaks.accentHue,
       } as React.CSSProperties}
     >
-      <Sidebar onSettingsChange={handleSettingsChange} tweaks={tweaks} onTweaksChange={handleTweaksChange} />
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          {messages.length === 0 && (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center space-y-2">
-                <p className="text-4xl">🤖</p>
-                <p className="text-[var(--foreground)] font-medium">RAG Support Copilot</p>
-                <p className="text-sm text-[var(--muted)] max-w-sm">
-                  Upload your support documentation in the sidebar, then ask about any issue.
-                </p>
-                {!apiKey && (
-                  <p className="text-xs text-[#d29922] mt-2">
-                    ⚠ Enter your Hugging Face API key in the sidebar to get started.
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              onFeedback={handleFeedback}
-              onFollowUp={handleFollowUp}
-            />
-          ))}
-
-          {backendError && (
-            <div className="mx-auto max-w-md rounded border border-[#f85149]/40 bg-[#f85149]/10 px-4 py-3 text-sm text-[#f85149] text-center">
-              ⚠ {backendError}
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
-          <form onSubmit={handleSubmit(onSubmit)} className="flex gap-3 items-end">
-            <div className="flex-1">
-              <textarea
-                rows={1}
-                placeholder={
-                  !apiKey
-                    ? "Enter your API key in the sidebar first…"
-                    : "Describe the support issue…"
-                }
-                disabled={!apiKey || isLoading}
-                className="w-full resize-none rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] px-4 py-3 text-sm text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors disabled:opacity-50 leading-relaxed max-h-40 overflow-y-auto"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(onSubmit)();
-                  }
-                }}
-                {...register("question")}
-              />
-              {errors.question && (
-                <p className="mt-1 text-xs text-[#f85149]">{errors.question.message}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={!canSend}
-              className="flex-shrink-0 h-11 w-11 rounded-xl bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              aria-label="Send"
+      {/* Top bar */}
+      <div
+        style={{
+          height: 44,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+          background: "#161616",
+          borderBottom: "1px solid #2a2a2a",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              background: "var(--accent, #ffd700)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#0f0f0f", letterSpacing: "0.05em" }}>
+              SC
+            </span>
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "#e8e4df",
+                letterSpacing: "0.06em",
+                fontWeight: 500,
+              }}
             >
-              {isLoading ? (
-                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8z"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
-                </svg>
-              )}
-            </button>
-          </form>
-          <p className="mt-2 text-[10px] text-[var(--muted)] text-center">
-            Enter to send · Shift+Enter for new line
-          </p>
+              SUPPORT COPILOT
+            </div>
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+          {["DEEPSEEK-R1", "CHROMA DB"].map((engine, idx) => (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: "#44ff44",
+                  boxShadow: "0 0 5px #44ff44",
+                }}
+              />
+              <span style={{ fontSize: 9, color: "#454037", letterSpacing: "0.08em" }}>
+                {engine}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Main area */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* Sidebar */}
+        <Sidebar onSettingsChange={handleSettingsChange} tweaks={tweaks} onTweaksChange={handleTweaksChange} />
+
+        {/* Chat column */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Messages */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "20px 24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            {messages.length === 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  height: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 32, marginBottom: 8 }}>🤖</p>
+                  <p
+                    style={{
+                      color: "#e8e4df",
+                      fontWeight: 500,
+                      fontSize: 14,
+                      marginBottom: 8,
+                    }}
+                  >
+                    RAG Support Copilot
+                  </p>
+                  <p style={{ color: "#b0ab9f", fontSize: 12, maxWidth: 320, lineHeight: 1.5 }}>
+                    Upload your support documentation in the sidebar, then ask about any issue.
+                  </p>
+                  {!apiKey && (
+                    <p
+                      style={{
+                        fontSize: 11,
+                        color: "#ffaa00",
+                        marginTop: 16,
+                      }}
+                    >
+                      ⚠ Enter your Hugging Face API key in the sidebar to get started.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onFeedback={handleFeedback}
+                onFollowUp={handleFollowUp}
+              />
+            ))}
+
+            {backendError && (
+              <div
+                style={{
+                  background: "#ff444426",
+                  border: "1px solid #ff444440",
+                  padding: "8px 12px",
+                  fontSize: 10,
+                  color: "#ff4444",
+                  textAlign: "center",
+                  maxWidth: 320,
+                  margin: "0 auto",
+                }}
+              >
+                ⚠ {backendError}
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input area */}
+          <div
+            style={{
+              background: "#161616",
+              borderTop: "1px solid #2a2a2a",
+              padding: "12px 24px 14px",
+            }}
+          >
+            <form onSubmit={handleSubmit(onSubmit)}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-end",
+                  background: "#1e1e1e",
+                  border: "1px solid #3a3a3a",
+                  padding: "10px 12px",
+                  transition: "border-color 0.2s",
+                }}
+              >
+                <textarea
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(onSubmit)();
+                    }
+                    e.currentTarget.style.height = "auto";
+                    e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 120) + "px";
+                  }}
+                  placeholder={
+                    !apiKey
+                      ? "Enter your API key in the sidebar first…"
+                      : "Describe the support issue…"
+                  }
+                  disabled={!apiKey || isLoading}
+                  rows={1}
+                  style={{
+                    flex: 1,
+                    background: "none",
+                    border: "none",
+                    outline: "none",
+                    resize: "none",
+                    color: "#e8e4df",
+                    fontFamily: '"IBM Plex Mono", monospace',
+                    fontSize: tweaks.fontSize,
+                    lineHeight: 1.55,
+                    maxHeight: 120,
+                    overflowY: "auto",
+                    opacity: !apiKey || isLoading ? 0.5 : 1,
+                  }}
+                  {...register("question")}
+                />
+                <button
+                  type="submit"
+                  disabled={!canSend}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: canSend ? "var(--accent, #ffd700)" : "#2e2e2e",
+                    border: "none",
+                    cursor: canSend ? "pointer" : "default",
+                    color: canSend ? "#0f0f0f" : "#454037",
+                    transition: "all 0.15s",
+                    flexShrink: 0,
+                  }}
+                >
+                  {isLoading ? (
+                    <svg
+                      style={{
+                        width: 16,
+                        height: 16,
+                        animation: "spin 1s linear infinite",
+                      }}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        opacity="0.25"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                        opacity="0.75"
+                      />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 14 14" width="12" height="12" fill="currentColor">
+                      <path d="M1 1L13 7L1 13V8.5L9 7L1 5.5V1Z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {errors.question && (
+                <p style={{ marginTop: 4, fontSize: 9, color: "#ff4444" }}>
+                  {errors.question.message}
+                </p>
+              )}
+            </form>
+            <div style={{ marginTop: 5, display: "flex", gap: 4, alignItems: "center" }}>
+              <span style={{ fontSize: 9, color: "#454037" }}>Enter to send</span>
+              <span style={{ fontSize: 9, color: "#454037" }}>·</span>
+              <span style={{ fontSize: 9, color: "#454037" }}>Shift+Enter for new line</span>
+            </div>
+          </div>
+        </div>
+
+        {/* RAG Panel */}
+        {tweaks.showRetrieval && <RAGStatusPanel log={currentLog} />}
+      </div>
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

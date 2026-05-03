@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { Message } from "@/lib/types";
 import ResolutionCard from "./ResolutionCard";
 import SourcesSection from "./SourcesSection";
-import RAGStatusPanel from "./RAGStatusPanel";
 
 interface Props {
   message: Message;
@@ -14,15 +13,26 @@ interface Props {
 
 function TypingDots() {
   return (
-    <span className="inline-flex gap-1 items-center">
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
       {[0, 1, 2].map((i) => (
-        <span
+        <div
           key={i}
-          className="w-1.5 h-1.5 rounded-full bg-[var(--muted)] animate-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
+          style={{
+            width: 4,
+            height: 4,
+            borderRadius: "50%",
+            background: "var(--accent, #ffd700)",
+            animation: `bounce 1.2s ease-in-out ${i * 0.18}s infinite`,
+          }}
         />
       ))}
-    </span>
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-4px); opacity: 1; }
+        }
+      `}</style>
+    </div>
   );
 }
 
@@ -65,154 +75,291 @@ export default function MessageBubble({ message, onFeedback, onFollowUp }: Props
   };
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
-      <div className={`max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
-        <span className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1 px-1">
-          {isUser ? "You" : "Copilot"}
-        </span>
-
+    <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", padding: "4px 0" }}>
+      <div style={{ maxWidth: isUser ? "72%" : "90%" }}>
         <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-            isUser
-              ? "bg-[var(--user-bubble)] text-white rounded-tr-sm"
-              : "bg-[var(--assistant-bubble)] border border-[var(--border)] text-[var(--foreground)] rounded-tl-sm"
-          }`}
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.12em",
+            color: "#454037",
+            fontFamily: '"IBM Plex Mono", monospace',
+            marginBottom: 4,
+            textTransform: "uppercase",
+            textAlign: isUser ? "right" : "left",
+          }}
         >
-          {message.isStreaming && !message.content ? (
-            <TypingDots />
-          ) : (
-            <span className="whitespace-pre-wrap">{message.content}</span>
-          )}
-          {message.isStreaming && message.content && (
-            <span className="inline-block w-0.5 h-4 bg-[var(--accent)] animate-pulse ml-0.5 align-middle" />
-          )}
+          {isUser ? "YOU" : "COPILOT"}
         </div>
 
-        {message.error && (
-          <div className="mt-2 rounded border border-[#f85149]/40 bg-[#f85149]/10 px-3 py-2 text-xs text-[#f85149]">
-            ⚠ {message.error}
+        {isUser ? (
+          <div
+            style={{
+              background: "var(--accent, #ffd700)",
+              color: "#0f0f0f",
+              padding: "9px 13px",
+              fontSize: 12,
+              lineHeight: 1.6,
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontWeight: 500,
+            }}
+          >
+            {message.content}
           </div>
-        )}
-
-        {message.corrected_query && (
-          <p className="mt-1 px-1 text-xs text-[var(--muted)] italic">
-            Searched as:{" "}
-            <span className="text-[var(--accent)]">{message.corrected_query}</span>
-          </p>
-        )}
-
-        {!message.isStreaming && message.isNonTicket && (
-          <div className="mt-3 w-full max-w-none rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 p-4">
-            <div className="flex gap-2">
-              <svg
-                className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {message.isStreaming && !message.content ? (
+              <div
+                style={{
+                  background: "#1e1e1e",
+                  border: "1px solid #2a2a2a",
+                  padding: "10px 14px",
+                }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm text-blue-900 dark:text-blue-100">{message.content}</p>
-            </div>
-          </div>
-        )}
+                <TypingDots />
+              </div>
+            ) : (
+              <>
+                {message.content && (
+                  <div
+                    style={{
+                      background: "#1e1e1e",
+                      border: "1px solid #2a2a2a",
+                      padding: "9px 13px",
+                      fontSize: 12,
+                      lineHeight: 1.65,
+                      color: "#e8e4df",
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      maxWidth: "90%",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {message.content}
+                  </div>
+                )}
+              </>
+            )}
 
-        {!message.isStreaming && !message.isNonTicket && message.resolution && (
-          <div className="w-full max-w-none">
-            <ResolutionCard resolution={message.resolution} />
-          </div>
-        )}
+            {message.isStreaming && message.content && (
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 2,
+                  height: 16,
+                  background: "var(--accent, #ffd700)",
+                  animation: "pulse 1s infinite",
+                  marginLeft: 4,
+                }}
+              />
+            )}
 
-        {!message.isStreaming && !message.isNonTicket && message.sources && (
-          <div className="px-1 w-full">
-            <SourcesSection sources={message.sources} />
-          </div>
-        )}
-
-        {!message.isStreaming && !isUser && (message.resolution || message.content) && (
-          <div className="mt-3 flex flex-wrap gap-3 text-xs">
-            <button
-              onClick={handleCopy}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
-                copied
-                  ? "text-[#3fb950]"
-                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
-              }`}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
+            {message.error && (
+              <div
+                style={{
+                  background: "#ff444426",
+                  border: "1px solid #ff444440",
+                  padding: "6px 10px",
+                  fontSize: 10,
+                  color: "#ff4444",
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}
               >
-                <rect x="4" y="4" width="7" height="7" rx="1" />
-                <path d="M8 4V2.5A.5.5 0 0 0 7.5 2H2.5A.5.5 0 0 0 2 2.5V7.5A.5.5 0 0 0 2.5 8H4" />
-              </svg>
-              {copied ? "Copied" : "Copy"}
-            </button>
+                ⚠ {message.error}
+              </div>
+            )}
 
-            <div className="w-px bg-[var(--border)]" />
-
-            <button
-              onClick={() => handleFeedback("up")}
-              disabled={!!message.feedback}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded transition-colors ${
-                message.feedback === "up"
-                  ? "text-[#3fb950]"
-                  : message.feedback
-                  ? "text-[var(--muted)] opacity-50 cursor-default"
-                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
-              }`}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
-                <path d="M4 10H8.5C9 10 9.5 9.6 9.6 9.1L10.5 5.6C10.7 4.9 10.2 4.2 9.5 4.2H7V2.5C7 2 6.7 1.8 6.5 1.8L4 5V10Z" />
-                <path d="M2.5 10H4V5H2.5C2.2 5 2 5.2 2 5.5V9.5C2 9.8 2.2 10 2.5 10Z" />
-              </svg>
-              Helpful
-            </button>
-
-            <button
-              onClick={() => handleFeedback("down")}
-              disabled={!!message.feedback}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded transition-colors ${
-                message.feedback === "down"
-                  ? "text-[#f85149]"
-                  : message.feedback
-                  ? "text-[var(--muted)] opacity-50 cursor-default"
-                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
-              }`}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
-                <path d="M8 2H3.5C3 2 2.5 2.4 2.4 2.9L1.5 6.4C1.3 7.1 1.8 7.8 2.5 7.8H5V9.5C5 10 5.3 10.2 5.5 10.2L8 7V2Z" />
-                <path d="M9.5 2H8V7H9.5C9.8 7 10 6.8 10 6.5V2.5C10 2.2 9.8 2 9.5 2Z" />
-              </svg>
-              Not helpful
-            </button>
-          </div>
-        )}
-
-        {!message.isStreaming && message.followUps && message.followUps.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {message.followUps.map((question, i) => (
-              <button
-                key={i}
-                onClick={() => handleFollowUp(question)}
-                className="px-3 py-1.5 text-xs rounded border border-[var(--border)] text-[var(--muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
+            {message.corrected_query && (
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "#454037",
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}
               >
-                {question}
-              </button>
-            ))}
-          </div>
-        )}
+                Searched as:{" "}
+                <span style={{ color: "var(--accent, #ffd700)" }}>
+                  {message.corrected_query}
+                </span>
+              </div>
+            )}
 
-        {!message.isStreaming && message.retrievalLog && message.retrievalLog.length > 0 && (
-          <div className="w-full max-w-none mt-3">
-            <RAGStatusPanel log={message.retrievalLog} />
+            {!message.isStreaming && message.isNonTicket && (
+              <div
+                style={{
+                  background: "#0066ff26",
+                  border: "1px solid #0066ff40",
+                  padding: "8px 12px",
+                  maxWidth: "90%",
+                }}
+              >
+                <div style={{ display: "flex", gap: 6 }}>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    style={{ flexShrink: 0, marginTop: 2, color: "#0066ff" }}
+                  >
+                    <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
+                    <path
+                      d="M7 5v3M7 9v.5"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "#0066ff",
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {message.content}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {!message.isStreaming && !message.isNonTicket && message.resolution && (
+              <div style={{ maxWidth: "92%" }}>
+                <ResolutionCard resolution={message.resolution} />
+              </div>
+            )}
+
+            {!message.isStreaming && !message.isNonTicket && message.sources && (
+              <div>
+                <SourcesSection sources={message.sources} />
+              </div>
+            )}
+
+            {!message.isStreaming && !isUser && (message.resolution || message.content) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 2 }}>
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: copied ? "#44ff44" : "#454037",
+                    fontFamily: '"IBM Plex Mono", monospace',
+                    fontSize: 10,
+                    padding: "2px 4px",
+                    transition: "color 0.15s",
+                  }}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  >
+                    <rect x="4" y="4" width="7" height="7" rx="1" />
+                    <path d="M8 4V2.5A.5.5 0 0 0 7.5 2H2.5A.5.5 0 0 0 2 2.5V7.5A.5.5 0 0 0 2.5 8H4" />
+                  </svg>
+                  {copied ? "copied" : "copy"}
+                </button>
+
+                <div style={{ width: 1, height: 10, background: "#3a3a3a" }} />
+
+                <button
+                  onClick={() => handleFeedback("up")}
+                  disabled={!!message.feedback}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                    background: "none",
+                    border: "none",
+                    cursor: message.feedback ? "default" : "pointer",
+                    color: message.feedback === "up" ? "#44ff44" : "#454037",
+                    fontFamily: '"IBM Plex Mono", monospace',
+                    fontSize: 10,
+                    padding: "2px 4px",
+                    transition: "color 0.15s",
+                    opacity: message.feedback && message.feedback !== "up" ? 0.5 : 1,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
+                    <path d="M4 10H8.5C9 10 9.5 9.6 9.6 9.1L10.5 5.6C10.7 4.9 10.2 4.2 9.5 4.2H7V2.5C7 2 6.7 1.8 6.5 1.8L4 5V10Z" />
+                    <path d="M2.5 10H4V5H2.5C2.2 5 2 5.2 2 5.5V9.5C2 9.8 2.2 10 2.5 10Z" />
+                  </svg>
+                  helpful
+                </button>
+
+                <button
+                  onClick={() => handleFeedback("down")}
+                  disabled={!!message.feedback}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                    background: "none",
+                    border: "none",
+                    cursor: message.feedback ? "default" : "pointer",
+                    color: message.feedback === "down" ? "#ff4444" : "#454037",
+                    fontFamily: '"IBM Plex Mono", monospace',
+                    fontSize: 10,
+                    padding: "2px 4px",
+                    transition: "color 0.15s",
+                    opacity: message.feedback && message.feedback !== "down" ? 0.5 : 1,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
+                    <path d="M8 2H3.5C3 2 2.5 2.4 2.4 2.9L1.5 6.4C1.3 7.1 1.8 7.8 2.5 7.8H5V9.5C5 10 5.3 10.2 5.5 10.2L8 7V2Z" />
+                    <path d="M9.5 2H8V7H9.5C9.8 7 10 6.8 10 6.5V2.5C10 2.2 9.8 2 9.5 2Z" />
+                  </svg>
+                  not helpful
+                </button>
+              </div>
+            )}
+
+            {!message.isStreaming && message.followUps && message.followUps.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, paddingTop: 2 }}>
+                {message.followUps.map((question, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleFollowUp(question)}
+                    style={{
+                      background: "none",
+                      border: "1px solid #3a3a3a",
+                      color: "#6e6861",
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      fontSize: 10,
+                      padding: "4px 9px",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.target as HTMLElement).style.borderColor = "var(--accent, #ffd700)";
+                      (e.target as HTMLElement).style.color = "var(--accent, #ffd700)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.target as HTMLElement).style.borderColor = "#3a3a3a";
+                      (e.target as HTMLElement).style.color = "#6e6861";
+                    }}
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

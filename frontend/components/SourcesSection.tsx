@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { Source } from "@/lib/types";
 
 interface Props {
@@ -8,50 +7,54 @@ interface Props {
 }
 
 export default function SourcesSection({ sources }: Props) {
-  const [open, setOpen] = useState(false);
-
   if (sources.length === 0) return null;
 
   return (
-    <div className="mt-2">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
+    <div style={{ marginTop: 10 }}>
+      <div
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.1em",
+          color: "#454037",
+          fontFamily: '"IBM Plex Mono", monospace',
+          textTransform: "uppercase",
+          marginBottom: 5,
+        }}
       >
-        <span className="font-mono">{open ? "▾" : "▸"}</span>
-        {sources.length} source{sources.length !== 1 ? "s" : ""} retrieved
-      </button>
-
-      {open && (
-        <div className="mt-2 space-y-2">
-          {sources.map((src, i) => (
-            <div
-              key={i}
-              className="rounded border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-2"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-mono text-[var(--accent)] truncate max-w-[70%]">
-                  {src.filename}
-                </span>
-                <span
-                  className={`text-xs font-semibold ${
-                    src.score >= 0.7
-                      ? "text-[#3fb950]"
-                      : src.score >= 0.4
-                      ? "text-[#d29922]"
-                      : "text-[#f85149]"
-                  }`}
-                >
-                  {(src.score * 100).toFixed(0)}%
-                </span>
-              </div>
-              <p className="text-xs text-[var(--muted)] line-clamp-3 leading-relaxed">
-                {src.content}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+        RETRIEVED SOURCES
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {sources.map((src, i) => (
+          <span
+            key={i}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "2px 8px",
+              fontSize: 10,
+              color: "#6e6861",
+              background: "#262626",
+              border: "1px solid #3a3a3a",
+              fontFamily: '"IBM Plex Mono", monospace',
+              cursor: "default",
+              borderRadius: 2,
+            }}
+            title={src.content}
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <circle cx="4" cy="4" r="3" stroke="currentColor" strokeWidth="1.2" />
+              <path
+                d="M4 3v2M4 5.5v.5"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </svg>
+            {src.filename}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,16 +1,11 @@
-import type { Resolution, Urgency, Sentiment } from "@/lib/types";
+import { useState } from "react";
+import type { Resolution, Urgency } from "@/lib/types";
 
-const urgencyConfig: Record<Urgency, { label: string; color: string }> = {
-  critical: { label: "CRITICAL", color: "bg-[#f85149]/20 text-[#f85149] border-[#f85149]/40" },
-  high:     { label: "HIGH",     color: "bg-[#d29922]/20 text-[#d29922] border-[#d29922]/40" },
-  medium:   { label: "MEDIUM",   color: "bg-[#58a6ff]/20 text-[#58a6ff] border-[#58a6ff]/40" },
-  low:      { label: "LOW",      color: "bg-[#3fb950]/20 text-[#3fb950] border-[#3fb950]/40" },
-};
-
-const sentimentEmoji: Record<Sentiment, string> = {
-  positive: "😊",
-  neutral:  "😐",
-  negative: "😟",
+const urgencyMap: Record<Urgency, { label: string; color: string }> = {
+  critical: { label: "CRITICAL", color: "#ff4444" },
+  high: { label: "HIGH", color: "#ffaa00" },
+  medium: { label: "MEDIUM", color: "#5588ff" },
+  low: { label: "LOW", color: "#44ff44" },
 };
 
 interface Props {
@@ -18,48 +13,163 @@ interface Props {
 }
 
 export default function ResolutionCard({ resolution }: Props) {
-  const urgency = urgencyConfig[resolution.urgency] ?? urgencyConfig.medium;
-  const emoji = sentimentEmoji[resolution.sentiment] ?? "😐";
+  const [expanded, setExpanded] = useState(true);
+  const urgency = urgencyMap[resolution.urgency];
 
   return (
-    <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)] bg-[var(--surface-hover)]">
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${urgency.color}`}>
+    <div
+      style={{
+        background: "#1e1e1e",
+        border: "1px solid #3a3a3a",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 12px",
+          borderBottom: "1px solid #2a2a2a",
+          cursor: "pointer",
+          background: "#262626",
+        }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "2px 7px",
+            fontSize: 9,
+            letterSpacing: "0.1em",
+            fontWeight: 600,
+            fontFamily: '"IBM Plex Mono", monospace',
+            color: urgency.color,
+            background: urgency.color + "26",
+            border: `1px solid ${urgency.color}40`,
+            textTransform: "uppercase",
+          }}
+        >
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: urgency.color }} />
           {urgency.label}
         </span>
-        <span className="text-lg" title={`Sentiment: ${resolution.sentiment}`}>{emoji}</span>
+        <span
+          style={{
+            fontSize: 10,
+            color: "#6e6861",
+            fontFamily: '"IBM Plex Mono", monospace',
+            marginLeft: "auto",
+          }}
+        >
+          RESOLUTION
+        </span>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          style={{
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s",
+            stroke: "currentColor",
+            color: "#b0ab9f",
+          }}
+        >
+          <path d="M2 4L5 7L8 4" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
       </div>
 
-      <div className="px-4 py-3 space-y-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">
-            Possible Cause
-          </p>
-          <p className="text-sm text-[var(--foreground)]">{resolution.possible_cause}</p>
-        </div>
-
-        {resolution.recommended_steps.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">
-              Recommended Steps
-            </p>
-            <ol className="space-y-1">
+      {expanded && (
+        <div style={{ padding: "12px 12px 10px" }}>
+          <div style={{ marginBottom: 10 }}>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                color: "#454037",
+                fontFamily: '"IBM Plex Mono", monospace',
+                textTransform: "uppercase",
+                marginBottom: 4,
+              }}
+            >
+              POSSIBLE CAUSE
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "#b0ab9f",
+                lineHeight: 1.6,
+                fontFamily: '"IBM Plex Mono", monospace',
+              }}
+            >
+              {resolution.possible_cause}
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                color: "#454037",
+                fontFamily: '"IBM Plex Mono", monospace',
+                textTransform: "uppercase",
+                marginBottom: 6,
+              }}
+            >
+              RECOMMENDED STEPS
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {resolution.recommended_steps.map((step, i) => (
-                <li key={i} className="flex gap-2 text-sm">
-                  <span className="flex-shrink-0 text-[var(--accent)] font-mono">{i + 1}.</span>
-                  <span className="text-[var(--foreground)]">{step}</span>
-                </li>
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "var(--accent, #ffd700)",
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      minWidth: 14,
+                      paddingTop: 1,
+                    }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "#b0ab9f",
+                      lineHeight: 1.55,
+                      fontFamily: '"IBM Plex Mono", monospace',
+                    }}
+                  >
+                    {step}
+                  </span>
+                </div>
               ))}
-            </ol>
+            </div>
           </div>
-        )}
-
-        {resolution.disclaimer && (
-          <div className="rounded border border-[#d29922]/40 bg-[#d29922]/10 px-3 py-2">
-            <p className="text-xs text-[#d29922]">⚠ {resolution.disclaimer}</p>
-          </div>
-        )}
-      </div>
+          {resolution.disclaimer && (
+            <div
+              style={{
+                background: "#ffaa0026",
+                border: "1px solid #ffaa0040",
+                padding: "6px 10px",
+                marginTop: 10,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "#ffaa00",
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}
+              >
+                ⚠ {resolution.disclaimer}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -108,71 +108,160 @@ export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Pr
   }
 
   return (
-    <aside className="w-72 flex-shrink-0 h-full border-r border-[var(--border)] bg-[var(--surface)] flex flex-col gap-6 p-5 overflow-y-auto">
+    <aside
+      style={{
+        width: 288,
+        flexShrink: 0,
+        height: "100%",
+        borderRight: "1px solid #2a2a2a",
+        background: "#161616",
+        display: "flex",
+        flexDirection: "column",
+        gap: 24,
+        padding: 20,
+        overflowY: "auto",
+        fontFamily: '"IBM Plex Mono", monospace',
+      }}
+    >
       <div>
-        <h1 className="text-base font-semibold text-[var(--foreground)]">
+        <h1 style={{ fontSize: 14, fontWeight: 600, color: "#e8e4df", marginBottom: 4 }}>
           RAG Support Copilot
         </h1>
-        <p className="text-xs text-[var(--muted)] mt-0.5">Powered by DeepSeek + ChromaDB</p>
+        <p style={{ fontSize: 11, color: "#b0ab9f" }}>Powered by DeepSeek + ChromaDB</p>
       </div>
 
-      <hr className="border-[var(--border)]" />
+      <hr style={{ border: "none", borderTop: "1px solid #2a2a2a" }} />
 
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">
+        <label
+          style={{
+            display: "block",
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "#b0ab9f",
+            marginBottom: 8,
+          }}
+        >
           Hugging Face API Key
         </label>
         <input
           type="password"
           placeholder="hf_..."
-          className="w-full rounded-lg bg-[var(--surface-hover)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+          style={{
+            width: "100%",
+            borderRadius: 6,
+            background: "#262626",
+            border: "1px solid #3a3a3a",
+            padding: "8px 12px",
+            fontSize: 12,
+            color: "#e8e4df",
+            fontFamily: '"IBM Plex Mono", monospace',
+            outline: "none",
+            transition: "border-color 0.2s",
+          }}
           {...register("apiKey")}
         />
         {errors.apiKey && (
-          <p className="mt-1 text-xs text-[#f85149]">{errors.apiKey.message}</p>
+          <p style={{ marginTop: 4, fontSize: 11, color: "#ff4444" }}>
+            {errors.apiKey.message}
+          </p>
         )}
         {!apiKey && (
-          <p className="mt-1 text-xs text-[var(--muted)]">Required to query the LLM.</p>
+          <p style={{ marginTop: 4, fontSize: 11, color: "#b0ab9f" }}>Required to query the LLM.</p>
         )}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "#b0ab9f",
+              marginBottom: 4,
+            }}
+          >
             Strict Mode
           </p>
-          <p className="text-xs text-[var(--muted)] mt-0.5">
-            Skip LLM if confidence &lt; 60%
-          </p>
+          <p style={{ fontSize: 10, color: "#b0ab9f" }}>Skip LLM if confidence &lt; 60%</p>
         </div>
         <button
           type="button"
           onClick={() => setStrict((s) => !s)}
-          className={`relative w-10 h-5 rounded-full transition-colors ${
-            strict ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-          }`}
+          style={{
+            position: "relative",
+            width: 32,
+            height: 18,
+            borderRadius: 999,
+            border: "none",
+            background: strict ? "var(--accent, #ffd700)" : "#3a3a3a",
+            transition: "background 0.15s",
+            cursor: "pointer",
+            padding: 0,
+          }}
           aria-pressed={strict}
         >
           <span
-            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-              strict ? "translate-x-5" : "translate-x-0.5"
-            }`}
+            style={{
+              position: "absolute",
+              top: 2,
+              left: strict ? 14 : 2,
+              width: 14,
+              height: 14,
+              borderRadius: "50%",
+              background: "#fff",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+              transition: "transform 0.15s",
+            }}
           />
         </button>
       </div>
 
-      <hr className="border-[var(--border)]" />
+      <hr style={{ border: "none", borderTop: "1px solid #2a2a2a" }} />
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">
+        <p
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "#b0ab9f",
+            marginBottom: 8,
+          }}
+        >
           Ingest Documents
         </p>
         <label
-          className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--border)] bg-[var(--surface-hover)] px-4 py-6 cursor-pointer hover:border-[var(--accent)] transition-colors ${
-            ingestState === "loading" ? "opacity-60 pointer-events-none" : ""
-          }`}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            borderRadius: 6,
+            border: "2px dashed #3a3a3a",
+            background: "#262626",
+            padding: "24px 16px",
+            cursor: ingestState === "loading" ? "default" : "pointer",
+            transition: "all 0.15s",
+            opacity: ingestState === "loading" ? 0.6 : 1,
+            pointerEvents: ingestState === "loading" ? "none" : "auto",
+          }}
+          onMouseEnter={(e) => {
+            if (ingestState !== "loading") {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--accent, #ffd700)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a";
+          }}
         >
-          <span className="text-2xl">
+          <span style={{ fontSize: 24, lineHeight: 1 }}>
             {ingestState === "loading"
               ? "⏳"
               : ingestState === "success"
@@ -181,7 +270,7 @@ export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Pr
               ? "❌"
               : "📄"}
           </span>
-          <span className="text-xs text-[var(--muted)] text-center">
+          <span style={{ fontSize: 11, color: "#b0ab9f", textAlign: "center" }}>
             {ingestState === "loading"
               ? "Ingesting…"
               : "Drop .txt or .md files here, or click"}
@@ -191,38 +280,51 @@ export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Pr
             type="file"
             accept=".txt,.md"
             multiple
-            className="sr-only"
+            style={{ display: "none" }}
             onChange={handleUpload}
           />
         </label>
         {ingestMessage && (
           <p
-            className={`mt-2 text-xs ${
-              ingestState === "error" ? "text-[#f85149]" : "text-[#3fb950]"
-            }`}
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color: ingestState === "error" ? "#ff4444" : "#44ff44",
+            }}
           >
             {ingestMessage}
           </p>
         )}
       </div>
 
-      <hr className="border-[var(--border)]" />
+      <hr style={{ border: "none", borderTop: "1px solid #2a2a2a" }} />
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">
+        <p
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "#b0ab9f",
+            marginBottom: 8,
+          }}
+        >
           Index Status
         </p>
         {statusError ? (
-          <p className="text-xs text-[#f85149]">{statusError}</p>
+          <p style={{ fontSize: 11, color: "#ff4444" }}>{statusError}</p>
         ) : status ? (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-[var(--muted)]">Chunks stored</span>
-              <span className="font-mono text-[var(--accent)]">{status.total_chunks}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+              <span style={{ color: "#b0ab9f" }}>Chunks stored</span>
+              <span style={{ fontFamily: '"IBM Plex Mono", monospace', color: "var(--accent, #ffd700)" }}>
+                {status.total_chunks}
+              </span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-[var(--muted)]">Last ingestion</span>
-              <span className="font-mono text-[var(--foreground)] text-[10px]">
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+              <span style={{ color: "#b0ab9f" }}>Last ingestion</span>
+              <span style={{ fontFamily: '"IBM Plex Mono", monospace', color: "#e8e4df" }}>
                 {status.last_ingestion
                   ? new Date(status.last_ingestion).toLocaleString()
                   : "—"}
@@ -230,22 +332,34 @@ export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Pr
             </div>
           </div>
         ) : (
-          <p className="text-xs text-[var(--muted)]">Loading…</p>
+          <p style={{ fontSize: 11, color: "#b0ab9f" }}>Loading…</p>
         )}
       </div>
 
-      <hr className="border-[var(--border)]" />
+      <hr style={{ border: "none", borderTop: "1px solid #2a2a2a" }} />
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-3">
+        <p
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "#b0ab9f",
+            marginBottom: 12,
+          }}
+        >
           UI Tweaks
         </p>
 
-        <div className="space-y-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Accent Hue */}
           <div>
-            <label className="flex justify-between text-xs mb-2">
-              <span className="text-[var(--muted)]">Accent Hue</span>
-              <span className="text-[var(--accent)] font-mono">{localTweaks.accentHue}°</span>
+            <label style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 8 }}>
+              <span style={{ color: "#b0ab9f" }}>Accent Hue</span>
+              <span style={{ color: "var(--accent, #ffd700)", fontFamily: '"IBM Plex Mono", monospace' }}>
+                {localTweaks.accentHue}°
+              </span>
             </label>
             <input
               type="range"
@@ -254,17 +368,25 @@ export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Pr
               step="5"
               value={localTweaks.accentHue}
               onChange={(e) => updateTweak("accentHue", parseInt(e.target.value))}
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
               style={{
+                width: "100%",
+                height: 4,
+                borderRadius: 999,
                 background: `linear-gradient(to right, hsl(0,0%,30%), hsl(${localTweaks.accentHue},70%,50%))`,
-              }}
+                appearance: "none",
+                WebkitAppearance: "none",
+                cursor: "pointer",
+              } as React.CSSProperties}
             />
           </div>
 
+          {/* Font Size */}
           <div>
-            <label className="flex justify-between text-xs mb-2">
-              <span className="text-[var(--muted)]">Font Size</span>
-              <span className="text-[var(--accent)] font-mono">{localTweaks.fontSize}px</span>
+            <label style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 8 }}>
+              <span style={{ color: "#b0ab9f" }}>Font Size</span>
+              <span style={{ color: "var(--accent, #ffd700)", fontFamily: '"IBM Plex Mono", monospace' }}>
+                {localTweaks.fontSize}px
+              </span>
             </label>
             <input
               type="range"
@@ -273,43 +395,108 @@ export default function Sidebar({ onSettingsChange, tweaks, onTweaksChange }: Pr
               step="1"
               value={localTweaks.fontSize}
               onChange={(e) => updateTweak("fontSize", parseInt(e.target.value))}
-              className="w-full"
+              style={{
+                width: "100%",
+                height: 4,
+                borderRadius: 999,
+                background: "#3a3a3a",
+                appearance: "none",
+                WebkitAppearance: "none",
+                cursor: "pointer",
+              } as React.CSSProperties}
             />
           </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <label className="text-xs text-[var(--muted)]">Show Sources</label>
+          {/* Show Sources Toggle */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <label style={{ fontSize: 11, color: "#b0ab9f" }}>Show Sources</label>
             <button
               onClick={() => updateTweak("showSources", !localTweaks.showSources)}
-              className={`relative w-8 h-4 rounded-full transition-colors ${
-                localTweaks.showSources ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-              }`}
+              style={{
+                position: "relative",
+                width: 32,
+                height: 18,
+                borderRadius: 999,
+                border: "none",
+                background: localTweaks.showSources ? "var(--accent, #ffd700)" : "#3a3a3a",
+                transition: "background 0.15s",
+                cursor: "pointer",
+                padding: 0,
+              }}
             >
               <span
-                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                  localTweaks.showSources ? "translate-x-4" : "translate-x-0.5"
-                }`}
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: localTweaks.showSources ? 14 : 2,
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+                  transition: "transform 0.15s",
+                }}
               />
             </button>
           </div>
 
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-[var(--muted)]">Show RAG Log</label>
+          {/* Show RAG Log Toggle */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <label style={{ fontSize: 11, color: "#b0ab9f" }}>Show RAG Log</label>
             <button
               onClick={() => updateTweak("showRetrieval", !localTweaks.showRetrieval)}
-              className={`relative w-8 h-4 rounded-full transition-colors ${
-                localTweaks.showRetrieval ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-              }`}
+              style={{
+                position: "relative",
+                width: 32,
+                height: 18,
+                borderRadius: 999,
+                border: "none",
+                background: localTweaks.showRetrieval ? "var(--accent, #ffd700)" : "#3a3a3a",
+                transition: "background 0.15s",
+                cursor: "pointer",
+                padding: 0,
+              }}
             >
               <span
-                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                  localTweaks.showRetrieval ? "translate-x-4" : "translate-x-0.5"
-                }`}
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: localTweaks.showRetrieval ? 14 : 2,
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+                  transition: "transform 0.15s",
+                }}
               />
             </button>
           </div>
         </div>
       </div>
+
+      <style>{`
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          border: 0.5px solid rgba(0,0,0,0.12);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          cursor: default;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          border: 0.5px solid rgba(0,0,0,0.12);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          cursor: default;
+        }
+      `}</style>
     </aside>
   );
 }
