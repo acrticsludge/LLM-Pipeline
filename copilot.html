@@ -780,7 +780,7 @@
                                         if (idx !== -1) {
                                             updated[idx] = {
                                                 ...updated[idx],
-                                                text: updated[idx].text + event.content
+                                                text: updated[idx].text + (event.content || '')
                                             };
                                         }
                                         return updated;
@@ -789,6 +789,15 @@
                                     const totalTime = Date.now() - startTime;
                                     const messageType = event.type_discrimination || 'ticket';
 
+                                    let assistantText = '';
+                                    let diagnostic = null;
+
+                                    if (messageType === 'ticket') {
+                                        diagnostic = event.resolution || { possible_cause: 'Unknown' };
+                                    } else {
+                                        assistantText = event.message || "I'm a support copilot. Please describe a technical issue.";
+                                    }
+
                                     setMessages(prev => {
                                         const updated = [...prev];
                                         const idx = updated.findIndex(m => m.id === assistantId);
@@ -796,7 +805,8 @@
                                             updated[idx] = {
                                                 ...updated[idx],
                                                 isStreaming: false,
-                                                diagnostic: event.resolution || event.message,
+                                                text: assistantText || updated[idx].text,
+                                                diagnostic: diagnostic,
                                                 confidence: event.confidence || 0,
                                                 sources: event.sources || [],
                                                 retrievalCount: (event.sources || []).length,
@@ -889,6 +899,24 @@
                 });
             };
 
+            const handleFeedback = async (question, feedbackType) => {
+                try {
+                    const response = await fetch(`${backendUrl}/feedback`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            question: question,
+                            feedback: feedbackType
+                        })
+                    });
+                    if (response.ok) {
+                        console.log(`Feedback recorded: ${feedbackType}`);
+                    }
+                } catch (err) {
+                    console.error('Feedback submission failed:', err);
+                }
+            };
+
             return (
                 <div className="app-container">
                     <Sidebar
@@ -913,7 +941,7 @@
                                     <p style={{ fontSize: '12px', marginTop: '8px' }}>Enter your API key in the sidebar, upload documents, and ask for help</p>
                                 </div>
                             )}
-                            {messages.map(msg => (
+                            {messages.map((msg, msgIdx) => (
                                 <div key={msg.id}>
                                     {msg.role === 'user' && (
                                         <div className="message-group">
@@ -940,14 +968,21 @@
                                                 ) : (
                                                     <>
                                                         <div>{msg.text}</div>
-                                                        {msg.type === 'ticket' && msg.diagnostic && (
-                                                            <ResolutionCard
-                                                                diagnostic={msg.diagnostic}
-                                                                confidence={msg.confidence}
-                                                                sources={msg.sources}
-                                                                onCopy={() => handleCopyResolution(msg.diagnostic)}
-                                                            />
-                                                        )}
+                                                        {msg.type === 'ticket' && msg.diagnostic && (() => {
+                                                            const prevUserMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
+                                                            return (
+                                                                <ResolutionCard
+                                                                    diagnostic={msg.diagnostic}
+                                                                    confidence={msg.confidence}
+                                                                    sources={msg.sources}
+                                                                    onCopy={() => handleCopyResolution(msg.diagnostic)}
+                                                                    question={prevUserMsg?.text || ''}
+                                                                    onFeedback={(type) => {
+                                                                        if (prevUserMsg?.text) handleFeedback(prevUserMsg.text, type);
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
                                                         {msg.type === 'non-ticket' && (
                                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
                                                                 This doesn't appear to be a support issue. Please ask about a technical problem.
@@ -1102,8 +1137,9 @@
         }
 
         // Resolution Card Component
-        function ResolutionCard({ diagnostic, confidence, sources, onCopy }) {
+        function ResolutionCard({ diagnostic, confidence, sources, onCopy, question, onFeedback }) {
             const [sourcesOpen, setSourcesOpen] = useState(false);
+            const [feedbackSent, setFeedbackSent] = useState(null);
 
             const getUrgencyClass = (urgency) => {
                 const level = (urgency || 'low').toLowerCase();
@@ -1187,6 +1223,34 @@
                     <button className="btn copy-button" onClick={onCopy}>
                         📋 Copy Resolution
                     </button>
+
+                    {onFeedback && (
+                        <div className="feedback-prompt">
+                            <div style={{ fontSize: '11px', marginBottom: '6px' }}>Was this helpful?</div>
+                            <div className="feedback-buttons">
+                                <button
+                                    className={`feedback-btn ${feedbackSent === 'up' ? 'selected' : ''}`}
+                                    onClick={() => {
+                                        onFeedback('up');
+                                        setFeedbackSent('up');
+                                    }}
+                                    disabled={feedbackSent !== null}
+                                >
+                                    👍 Yes
+                                </button>
+                                <button
+                                    className={`feedback-btn ${feedbackSent === 'down' ? 'selected' : ''}`}
+                                    onClick={() => {
+                                        onFeedback('down');
+                                        setFeedbackSent('down');
+                                    }}
+                                    disabled={feedbackSent !== null}
+                                >
+                                    👎 No
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }

@@ -145,6 +145,18 @@ class StatusResponse(BaseModel):
     total_chunks: int
     last_ingestion: str | None
 
+
+class FeedbackRequest(BaseModel):
+    question: str
+    feedback: Literal["up", "down"]
+
+
+class MetricsResponse(BaseModel):
+    total_queries: int
+    total_feedback: dict[str, int]  # {"up": N, "down": N}
+    avg_confidence: float
+    total_chunks_ingested: int
+
 # ---------------------------------------------------------------------------
 # App + global state
 # ---------------------------------------------------------------------------
@@ -407,24 +419,24 @@ async def query(req: QueryRequest) -> StreamingResponse:
         # Pre-check: skip obvious non-tickets
         if not is_likely_ticket(req.question):
             yield _sse({
-                "type": "final",
-                "is_ticket": False,
+                "type": "done",
+                "type_discrimination": "non-ticket",
                 "message": "I'm a support copilot. Please describe a technical issue you're facing, and I'll do my best to help.",
                 "sources": [],
+                "confidence": 1.0,
                 "corrected_query": corrected_query,
             })
             return
 
         if req.strict and top_confidence < CONFIDENCE_THRESHOLD:
-            yield _sse(
-                {
-                    "type": "final",
-                    "is_ticket": True,
-                    "resolution": FALLBACK_RESOLUTION,
-                    "sources": sources,
-                    "corrected_query": corrected_query,
-                }
-            )
+            yield _sse({
+                "type": "done",
+                "type_discrimination": "ticket",
+                "resolution": FALLBACK_RESOLUTION,
+                "sources": sources,
+                "confidence": top_confidence,
+                "corrected_query": corrected_query,
+            })
             return
 
         context = "\n---\n".join(docs) if docs else "No documents available."
@@ -440,9 +452,19 @@ async def query(req: QueryRequest) -> StreamingResponse:
         )
 
         full_text = ""
+        first_chunk = True
         try:
             async for token in _llm_stream(llm_client, prompt):
                 full_text += token
+                # Stream chunks to frontend
+                yield _sse({
+                    "type": "chunk",
+                    "content": token,
+                    "confidence": top_confidence,
+                    "sources": sources,
+                })
+                # Only send first chunk marker
+                first_chunk = False
         except Exception as exc:
             yield _sse({"type": "error", "message": str(exc)})
             return
@@ -454,10 +476,11 @@ async def query(req: QueryRequest) -> StreamingResponse:
             # Check if this is a non-ticket response
             if parsed.get("type") == "non_ticket":
                 yield _sse({
-                    "type": "final",
-                    "is_ticket": False,
+                    "type": "done",
+                    "type_discrimination": "non-ticket",
                     "message": parsed.get("message", "I'm a support copilot. Please describe a technical issue you're facing, and I'll do my best to help."),
                     "sources": sources,
+                    "confidence": top_confidence,
                     "corrected_query": corrected_query,
                 })
                 return
@@ -471,15 +494,14 @@ async def query(req: QueryRequest) -> StreamingResponse:
             logger.error("Validation error: %s — raw: %.200s", exc, full_text)
             resolution = {**FALLBACK_RESOLUTION, "disclaimer": f"Parse error: {exc}"}
 
-        yield _sse(
-            {
-                "type": "final",
-                "is_ticket": True,
-                "resolution": resolution,
-                "sources": sources,
-                "corrected_query": corrected_query,
-            }
-        )
+        yield _sse({
+            "type": "done",
+            "type_discrimination": "ticket",
+            "resolution": resolution,
+            "sources": sources,
+            "confidence": top_confidence,
+            "corrected_query": corrected_query,
+        })
 
     return StreamingResponse(
         event_stream(),
@@ -499,6 +521,36 @@ async def status() -> StatusResponse:
     return StatusResponse(
         total_chunks=collection.count(),
         last_ingestion=saved.get("last_ingestion"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /feedback
+# ---------------------------------------------------------------------------
+
+_feedback_store: dict[str, list[str]] = {"up": [], "down": []}
+
+@app.post("/feedback")
+async def feedback(req: FeedbackRequest) -> dict:
+    """Store user feedback on response quality. Optional feature for future analysis."""
+    _feedback_store[req.feedback].append(req.question)
+    logger.info("Feedback %r for question: %s", req.feedback, req.question[:50])
+    return {"status": "recorded", "feedback_type": req.feedback}
+
+
+# ---------------------------------------------------------------------------
+# GET /metrics
+# ---------------------------------------------------------------------------
+
+@app.get("/metrics", response_model=MetricsResponse)
+async def metrics() -> MetricsResponse:
+    """Return cumulative RAG metrics for analytics dashboard. Optional feature."""
+    collection = get_collection()
+    return MetricsResponse(
+        total_queries=len(_feedback_store["up"]) + len(_feedback_store["down"]),
+        total_feedback={"up": len(_feedback_store["up"]), "down": len(_feedback_store["down"])},
+        avg_confidence=0.75,  # Placeholder — could compute from logged responses
+        total_chunks_ingested=collection.count(),
     )
 
 
