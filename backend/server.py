@@ -71,7 +71,6 @@ TYPO_MAP: list[tuple[str, str]] = [
 ]
 
 FALLBACK_RESOLUTION = {
-    "ticket_id": "UNKNOWN",
     "possible_cause": "Could not determine cause — query confidence too low.",
     "recommended_steps": [
         "Rephrase your question with more specific details.",
@@ -89,7 +88,6 @@ FALLBACK_RESOLUTION = {
 
 
 class Resolution(BaseModel):
-    ticket_id: str = "UNKNOWN"
     possible_cause: str = "Unknown"
     recommended_steps: list[str] = []
     urgency: Literal["low", "medium", "high", "critical"] = "medium"
@@ -187,6 +185,17 @@ def get_embedder() -> SentenceTransformer:
     if _embedder is None:
         raise HTTPException(status_code=503, detail="Server not ready")
     return _embedder
+
+
+def is_likely_ticket(text: str) -> bool:
+    """Quick pre-check to filter obvious non-tickets before LLM call."""
+    stripped = text.strip().lower()
+    if len(stripped) < 10:
+        return False
+    casual_keywords = {"hello", "hey", "what's up", "wazzup", "yo", "hi", "bye", "thanks"}
+    if any(kw in stripped for kw in casual_keywords):
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -292,23 +301,33 @@ async def ingest(files: list[UploadFile] = File(...)) -> IngestResponse:
 # POST /query  (SSE)
 # ---------------------------------------------------------------------------
 
-LLM_PROMPT_TEMPLATE = """\
-You are a technical support AI. Based ONLY on the context below, answer the user's question.
-Return a JSON object with EXACTLY these keys:
-{{
-  "ticket_id": "a short slug ID",
-  "possible_cause": "one sentence root cause",
-  "recommended_steps": ["step 1", "step 2", "step 3"],
-  "urgency": "low|medium|high|critical",
-  "sentiment": "positive|neutral|negative",
-  "disclaimer": null
-}}
+SYSTEM_PROMPT = """\
+You are a support copilot. Your task is to determine whether the user's message is a genuine support ticket or a casual/off-topic message.
 
-Context:
-{context}
+If the message is a casual greeting, vague statement, or off-topic question, you must respond with ONLY the following JSON:
 
-Question: {question}
+{"type": "non_ticket", "message": "I'm a support copilot. Please describe a technical issue you're facing, and I'll do my best to help."}
+
+If the message is a genuine support ticket (a clear description of a computer, hardware, software, or account problem), you must extract the following fields and output them inside a JSON object with type "ticket":
+
+- possible_cause: a brief description of what might be wrong
+- recommended_steps: a list of steps to resolve the issue (if no steps, use ["Please contact support."])
+- urgency: "low", "medium", "high", or "critical" based on keywords like "ASAP", "down", "lost data"
+- sentiment: "positive", "neutral", or "negative"
+- disclaimer: a string noting that the answer is AI-generated and should be verified, or null if not applicable
+
+IMPORTANT:
+- Output ONLY the JSON object. Never include explanatory text, greetings, or other messages.
+- Do not invent fields (like ticket_id) that were not requested.
+- Use "Unknown" for any field you cannot determine.
+- recommended_steps MUST be a JSON array of strings, not a single string.
+- urgency and sentiment MUST be exactly one of the allowed values.
 """
+
+USER_TEMPLATE = """\
+User message: {ticket_text}
+
+First, decide if this is a real support ticket or a casual/off-topic message. Then output the appropriate JSON object (either non_ticket or ticket) as described."""
 
 
 async def _llm_stream(
@@ -385,10 +404,22 @@ async def query(req: QueryRequest) -> StreamingResponse:
     top_confidence = sources[0]["score"] if sources else 0.0
 
     async def event_stream() -> AsyncGenerator[str, None]:
+        # Pre-check: skip obvious non-tickets
+        if not is_likely_ticket(req.question):
+            yield _sse({
+                "type": "final",
+                "is_ticket": False,
+                "message": "I'm a support copilot. Please describe a technical issue you're facing, and I'll do my best to help.",
+                "sources": [],
+                "corrected_query": corrected_query,
+            })
+            return
+
         if req.strict and top_confidence < CONFIDENCE_THRESHOLD:
             yield _sse(
                 {
                     "type": "final",
+                    "is_ticket": True,
                     "resolution": FALLBACK_RESOLUTION,
                     "sources": sources,
                     "corrected_query": corrected_query,
@@ -397,7 +428,7 @@ async def query(req: QueryRequest) -> StreamingResponse:
             return
 
         context = "\n---\n".join(docs) if docs else "No documents available."
-        prompt = LLM_PROMPT_TEMPLATE.format(context=context, question=corrected_question)
+        prompt = f"{SYSTEM_PROMPT}\n\n{USER_TEMPLATE.format(ticket_text=corrected_question)}\n\nContext:\n{context}"
 
         disclaimer: str | None = None
         if not docs:
@@ -412,7 +443,6 @@ async def query(req: QueryRequest) -> StreamingResponse:
         try:
             async for token in _llm_stream(llm_client, prompt):
                 full_text += token
-                yield _sse({"type": "chunk", "content": token})
         except Exception as exc:
             yield _sse({"type": "error", "message": str(exc)})
             return
@@ -420,6 +450,19 @@ async def query(req: QueryRequest) -> StreamingResponse:
         try:
             repaired = repair_json(full_text)
             parsed = json.loads(repaired)
+
+            # Check if this is a non-ticket response
+            if parsed.get("type") == "non_ticket":
+                yield _sse({
+                    "type": "final",
+                    "is_ticket": False,
+                    "message": parsed.get("message", "I'm a support copilot. Please describe a technical issue you're facing, and I'll do my best to help."),
+                    "sources": sources,
+                    "corrected_query": corrected_query,
+                })
+                return
+
+            # Otherwise, process as a ticket
             cleaned = replace_nulls(parsed)
             if disclaimer:
                 cleaned["disclaimer"] = disclaimer
@@ -431,6 +474,7 @@ async def query(req: QueryRequest) -> StreamingResponse:
         yield _sse(
             {
                 "type": "final",
+                "is_ticket": True,
                 "resolution": resolution,
                 "sources": sources,
                 "corrected_query": corrected_query,

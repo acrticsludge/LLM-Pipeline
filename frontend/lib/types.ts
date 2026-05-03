@@ -2,7 +2,6 @@ export type Urgency = "low" | "medium" | "high" | "critical";
 export type Sentiment = "positive" | "neutral" | "negative";
 
 export interface Resolution {
-  ticket_id: string;
   possible_cause: string;
   recommended_steps: string[];
   urgency: Urgency;
@@ -21,12 +20,23 @@ export interface SSEChunkEvent {
   content: string;
 }
 
-export interface SSEFinalEvent {
+export interface SSEFinalEventTicket {
   type: "final";
+  is_ticket: true;
   resolution: Resolution;
   sources: Source[];
   corrected_query: string | null;
 }
+
+export interface SSEFinalEventNonTicket {
+  type: "final";
+  is_ticket: false;
+  message: string;
+  sources: [];
+  corrected_query: string | null;
+}
+
+export type SSEFinalEvent = SSEFinalEventTicket | SSEFinalEventNonTicket;
 
 export interface SSEErrorEvent {
   type: "error";
@@ -42,6 +52,7 @@ export interface Message {
   resolution?: Resolution;
   sources?: Source[];
   corrected_query?: string | null;
+  isNonTicket?: boolean;
   isStreaming?: boolean;
   error?: string;
 }

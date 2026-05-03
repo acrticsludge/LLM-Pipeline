@@ -50,6 +50,7 @@ An AI-powered support ticket resolution system using Retrieval-Augmented Generat
 - **Source citations** — Top-K retrieved chunks shown with similarity scores; collapsible per message.
 - **File ingestion** — Upload `.txt` / `.md` files; chunked (300 chars, 50 overlap), embedded locally, stored in ChromaDB.
 - **Strict mode** — Skips LLM if top retrieval confidence < 60%, returns fallback resolution.
+- **Intent Classification** — Distinguishes support tickets from casual/off-topic messages. Casual greetings ("hello", "what's up") are caught by pre-check and return a friendly message without LLM calls. Off-topic questions that pass pre-check are classified by the LLM and return a structured non-ticket response. Prevents LLM hallucinations on irrelevant inputs.
 
 ### Edge Cases Handled
 
@@ -66,6 +67,8 @@ An AI-powered support ticket resolution system using Retrieval-Augmented Generat
 | 9 | `recommended_steps` as string | Pydantic `coerce_steps` validator wraps in list |
 | 10 | No API key | Backend returns 401; frontend disables send button with warning |
 | 11 | Backend unreachable | Frontend catches fetch error, shows inline error message |
+| 12 | Casual greeting ("hello") | Pre-check filter catches it; returns non-ticket message without LLM call (saves API credits) |
+| 13 | Off-topic question ("do you like pizza?") | LLM classifies as non-ticket; returns friendly message to refocus on support issues |
 
 ---
 
@@ -154,6 +157,33 @@ LLM-Pipeline/
 │   └── .env.local.template
 └── README.md
 ```
+
+---
+
+## Testing Intent Detection
+
+### Non-Ticket Detection (Pre-Check)
+
+These messages are caught by the pre-check and return immediately without calling the LLM:
+
+- "hello" → Returns: "I'm a support copilot. Please describe a technical issue..."
+- "hi there" → Returns: "I'm a support copilot. Please describe a technical issue..."
+- "what's up" → Returns: "I'm a support copilot. Please describe a technical issue..."
+
+### Non-Ticket Detection (LLM-Based)
+
+These messages pass pre-check but are classified as non-tickets by the LLM:
+
+- "when was your company founded?" → Returns: "I'm a support copilot. Please describe a technical issue..."
+- "do you like pizza?" → Returns: "I'm a support copilot. Please describe a technical issue..."
+
+### Legitimate Support Tickets
+
+These are recognized as real support issues and return a Resolution Card:
+
+- "My database keeps timing out during peak hours"
+- "How do I fix a 502 error in my application?"
+- "Application crashes on startup with seg fault"
 
 ---
 

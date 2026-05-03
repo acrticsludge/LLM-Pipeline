@@ -78,19 +78,38 @@ export default function ChatInterface() {
             )
           );
         } else if (event.type === "final") {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? {
-                    ...m,
-                    isStreaming: false,
-                    resolution: event.resolution,
-                    sources: event.sources,
-                    corrected_query: event.corrected_query,
-                  }
-                : m
-            )
-          );
+          if (event.is_ticket === false) {
+            // Handle non-ticket response
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      isStreaming: false,
+                      content: event.message,
+                      isNonTicket: true,
+                      corrected_query: event.corrected_query,
+                    }
+                  : m
+              )
+            );
+          } else {
+            // Handle ticket response
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      isStreaming: false,
+                      resolution: event.resolution,
+                      sources: event.sources,
+                      corrected_query: event.corrected_query,
+                      isNonTicket: false,
+                    }
+                  : m
+              )
+            );
+          }
         } else if (event.type === "error") {
           setMessages((prev) =>
             prev.map((m) =>

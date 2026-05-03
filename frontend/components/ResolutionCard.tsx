@@ -24,12 +24,9 @@ export default function ResolutionCard({ resolution }: Props) {
   return (
     <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)] bg-[var(--surface-hover)]">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-[var(--muted)]">#{resolution.ticket_id}</span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${urgency.color}`}>
-            {urgency.label}
-          </span>
-        </div>
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${urgency.color}`}>
+          {urgency.label}
+        </span>
         <span className="text-lg" title={`Sentiment: ${resolution.sentiment}`}>{emoji}</span>
       </div>
 

@@ -60,13 +60,29 @@ export default function MessageBubble({ message }: Props) {
           </p>
         )}
 
-        {!message.isStreaming && message.resolution && (
+        {!message.isStreaming && message.isNonTicket && (
+          <div className="mt-3 w-full max-w-none rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 p-4">
+            <div className="flex gap-2">
+              <svg
+                className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-blue-900 dark:text-blue-100">{message.content}</p>
+            </div>
+          </div>
+        )}
+
+        {!message.isStreaming && !message.isNonTicket && message.resolution && (
           <div className="w-full max-w-none">
             <ResolutionCard resolution={message.resolution} />
           </div>
         )}
 
-        {!message.isStreaming && message.sources && (
+        {!message.isStreaming && !message.isNonTicket && message.sources && (
           <div className="px-1 w-full">
             <SourcesSection sources={message.sources} />
           </div>
